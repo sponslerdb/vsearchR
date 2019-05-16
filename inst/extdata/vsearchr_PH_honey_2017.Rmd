@@ -1,0 +1,302 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+### Load vsearch output
+#### Philly 2017 pollen
+```{r include=FALSE}
+trnL_PH_pollen <- load_blast6("~/vsearchr/inst/extdata/trnL_vsearch_philly.output/pollen/")
+ITS1_PH_pollen <- load_blast6("~/vsearchr/inst/extdata/ITS1_vsearch_philly.output/pollen/")
+ITS2_PH_pollen <- load_blast6("~/vsearchr/inst/extdata/ITS2_vsearch_philly.output/pollen/")
+write_csv(trnL_PH_pollen, "trnL_PH_pollen.csv")
+write_csv(ITS1_PH_pollen, "ITS1_PH_pollen.csv")
+write_csv(ITS2_PH_pollen, "ITS2_PH_pollen.csv")
+trnL_PH_pollen <- read_csv("trnL_PH_pollen.csv", col_names = TRUE)
+ITS1_PH_pollen <- read_csv("ITS1_PH_pollen.csv", col_names = TRUE)
+ITS2_PH_pollen <- read_csv("ITS2_PH_pollen.csv", col_names = TRUE)
+```
+
+#### Philly 2017 honey
+```{r}
+trnL_PH_honey <- load_blast6("~/vsearchr/inst/extdata/trnL_vsearch_philly.output/honey/")
+ITS1_PH_honey <- load_blast6("~/vsearchr/inst/extdata/ITS1_vsearch_philly.output/honey/")
+ITS2_PH_honey <- load_blast6("~/vsearchr/inst/extdata/ITS2_vsearch_philly.output/honey/")
+write_csv(trnL_PH_honey, "trnL_PH_honey.csv")
+write_csv(ITS1_PH_honey, "ITS1_PH_honey.csv")
+write_csv(ITS2_PH_honey, "ITS2_PH_honey.csv")
+# trnL_PH_honey <- read_csv("trnL_PH_honey.csv", col_names = TRUE)
+# ITS1_PH_honey <- read_csv("ITS1_PH_honey.csv", col_names = TRUE)
+# ITS2_PH_honey <- read_csv("ITS2_PH_honey.csv", col_names = TRUE)
+```
+
+
+### Load taxonomy tables
+#### Philly 2017
+```{r}
+trnL_PH_tax <- load_MTXA("~/vsearchr/inst/extdata/trnL_PH_Amplicons2.tax")
+ITS1_PH_tax <- load_MTXA("~/vsearchr/inst/extdata/ITS1_PH_Amplicons.tax")
+ITS2_PH_tax <- load_MTXA("~/vsearchr/inst/extdata/ITS2_PH_Amplicons.tax")
+```
+
+### Join vsearch output to taxonomy tables
+#### Philly 2017 honey
+```{r}
+trnL_PH_honey_join <- tax_join(trnL_PH_honey, trnL_PH_tax, min_id = 0.97, min_len = 150)
+ITS1_PH_honey_join <- tax_join(ITS1_PH_honey, ITS1_PH_tax, min_id = 0.95, min_len = 300)
+ITS2_PH_honey_join <- tax_join(ITS2_PH_honey, ITS2_PH_tax, min_id = 0.95, min_len = 300)
+write_csv(trnL_PH_honey_join, "trnL_PH_honey_join.csv")
+write_csv(ITS1_PH_honey_join, "ITS1_PH_honey_join.csv")
+write_csv(ITS2_PH_honey_join, "ITS2_PH_honey_join.csv")
+# trnL_PH_honey_join <- read_csv("trnL_PH_honey_join.csv", col_names = TRUE)
+# ITS1_PH_honey_join <- read_csv("ITS1_PH_honey_join.csv", col_names = TRUE)
+# ITS2_PH_honey_join <- read_csv("ITS2_PH_honey_join.csv", col_names = TRUE)
+```
+
+### Tally genera by sample
+#### Philly 2017 honey
+```{r}
+trnL_PH_honey_tally <- tally_gen(trnL_PH_honey_join)
+ITS1_PH_honey_tally <- tally_gen(ITS1_PH_honey_join)
+ITS2_PH_honey_tally <- tally_gen(ITS2_PH_honey_join)
+```
+
+### Add sample metadata, create consensus data sets, create genus summary fields
+#### Philly 2017 honey
+```{r}
+trnL_PH_honey_final <- add_meta(trnL_PH_honey_tally, "~/vsearchr/inst/extdata/PH_2017_key.csv")
+ITS1_PH_honey_final <- add_meta(ITS1_PH_honey_tally, "~/vsearchr/inst/extdata/PH_2017_key.csv")
+ITS2_PH_honey_final <- add_meta(ITS2_PH_honey_tally, "~/vsearchr/inst/extdata/PH_2017_key.csv")
+
+PH_honey_consensus <- consensus_xyz_gen(trnL_PH_honey_final, ITS1_PH_honey_final, ITS2_PH_honey_final,
+                                         min_prop = 0.0005) %>%
+  add_meta("~/vsearchr/inst/extdata/PH_2017_key.csv") %>%
+  mutate(period = case_when(date > "2017-05-20" & date < "2017-06-15" ~ "May/June",
+                            date > "2017-06-20" & date < "2017-07-15" ~ "June/July",
+                            date > "2017-07-20" & date < "2017-08-15" ~ "Aug",
+                            date > "2017-08-20" & date < "2017-09-15" ~ "Sept",
+                            is.na(date) & site == "SHARE" ~ "June/July"))
+
+PH_honey_consensus_MayJune <- filter(PH_honey_consensus, period == "May/June")
+PH_honey_consensus_JuneJuly <- filter(PH_honey_consensus, period == "June/July")
+PH_honey_consensus_Aug <- filter(PH_honey_consensus, period == "Aug")
+PH_honey_consensus_Sept <- filter(PH_honey_consensus, period == "Sept")
+
+
+PH_honey_genus_summary <- PH_honey_consensus %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n())
+
+PH_honey_genus_summary_MayJune <- PH_honey_consensus_MayJune %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n(),
+            mean_prop = sum(scaled_prop)/8) # We only had 8 sites for the MayJune sample; we had 12 sites for all others
+
+PH_honey_genus_summary_JuneJuly <- PH_honey_consensus_JuneJuly %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n(),
+            mean_prop = sum(scaled_prop)/12)
+
+PH_honey_genus_summary_Aug <- PH_honey_consensus_Aug %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n(),
+            mean_prop = sum(scaled_prop)/12)
+
+PH_honey_genus_summary_Sept <- PH_honey_consensus_Sept %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n(),
+            mean_prop = sum(scaled_prop)/12)
+
+
+PH_honey_final <- left_join(PH_honey_consensus, PH_honey_genus_summary, by = "genus")
+PH_honey_final_MayJune <- left_join(PH_honey_consensus_MayJune, PH_honey_genus_summary_MayJune, by = "genus")
+PH_honey_final_JuneJuly <- left_join(PH_honey_consensus_JuneJuly, PH_honey_genus_summary_JuneJuly, by = "genus")
+PH_honey_final_Aug <- left_join(PH_honey_consensus_Aug, PH_honey_genus_summary_Aug, by = "genus")
+PH_honey_final_Sept <- left_join(PH_honey_consensus_Sept, PH_honey_genus_summary_Sept, by = "genus")
+
+```
+
+
+### Plot data 
+#### Philly 2017 honey
+##### trnL only
+```{r}
+ggplot(filter(trnL_PH_honey_final, gen_prop >= 0.01), aes(x = date, y = reorder(genus, gen_freq), fill = gen_prop)) +
+  geom_tile(width = 32, color = "white") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Sample") +
+  labs(fill = "Proportional\nabundance") +
+  facet_grid(~site) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+##### ITS1 only
+```{r}
+ggplot(filter(ITS1_PH_honey_final, gen_prop >= 0.01), aes(x = date, y = reorder(genus, gen_prop), fill = gen_prop)) +
+  geom_tile(width = 12, color = "white") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Sample") +
+  labs(fill = "Proportional\nabundance") +
+  facet_grid(~site) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+##### ITS2 only
+```{r}
+ggplot(filter(ITS2_PH_honey_final, gen_prop >= 0.01), aes(x = date, y = reorder(genus, gen_prop), fill = gen_prop)) +
+  geom_tile(width = 12, color = "white") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Sample") +
+  labs(fill = "Proportional\nabundance") +
+  facet_grid(~site) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+##### 2-of-3 consensus
+```{r}
+# pdf("~/vsearchr/inst/extdata/figures/PH_final.pdf", height = 5, width = 8.5)
+# ggplot(PH_honey_final, aes(x = date, y = reorder(genus, gen_freq), fill = scaled_prop)) +
+#   geom_tile(width = 30, color = "gray40") +
+#   scale_fill_gradient(low = "gray95", high = "purple") +
+#   theme_bw(4) +
+#   ylab("Genus") +
+#   xlab("Sample") +
+#   labs(fill = "Proportional\nabundance") +
+#   facet_grid(~site) +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# dev.off()
+
+pdf("~/vsearchr/inst/extdata/figures/PH_final_mayjune.pdf", height = 11, width = 8.5)
+ggplot(filter(PH_honey_final_MayJune, period == "May/June"), aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+
+pdf("~/vsearchr/inst/extdata/figures/PH_final_junejuly.pdf", height = 11, width = 8.5)
+ggplot(filter(PH_honey_final_JuneJuly, period == "June/July"), aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+
+pdf("~/vsearchr/inst/extdata/figures/PH_final_aug.pdf", height = 11, width = 8.5)
+ggplot(filter(PH_honey_final_Aug, period == "Aug"), aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+
+pdf("~/vsearchr/inst/extdata/figures/PH_final_sept.pdf", height = 11, width = 8.5)
+ggplot(filter(PH_honey_final_Sept, period == "Sept"), aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+
+# pdf("~/vsearchr/inst/extdata/figures/PH_final_period.pdf", height = 5, width = 8.5)
+# ggplot(filter(PH_honey_final_join, !is.na(date)), 
+#        aes(x = reorder(period, date), y = reorder(genus, gen_freq), fill = scaled_prop)) +
+#   geom_tile(width = 0.5, color = "white") +
+#   scale_fill_gradient(low = "gray95", high = "purple") +
+#   theme_bw(8) +
+#   ylab("Genus") +
+#   xlab("Sample") +
+#   labs(fill = "Proportional\nabundance") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# dev.off()
+
+
+############ Trimmed figures for presentation #################
+
+# pdf("~/vsearchr/inst/extdata/figures/PH_final.pdf", height = 5, width = 8.5)
+# ggplot(PH_honey_final, aes(x = date, y = reorder(genus, gen_freq), fill = scaled_prop)) +
+#   geom_tile(width = 30, color = "gray40") +
+#   scale_fill_gradient(low = "gray95", high = "purple") +
+#   theme_bw(4) +
+#   ylab("Genus") +
+#   xlab("Sample") +
+#   labs(fill = "Proportional\nabundance") +
+#   facet_grid(~site) +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# dev.off()
+
+pdf("~/vsearchr/inst/extdata/figures/PH_final_mayjune_PresTrim.pdf", height = 6, width = 6.5)
+ggplot(filter(PH_honey_final_MayJune, period == "May/June", gen_freq > 1 | mean_prop >= 0.05), aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+
+pdf("~/vsearchr/inst/extdata/figures/PH_final_junejuly_PresTrim.pdf", height = 6, width = 6.5)
+ggplot(filter(PH_honey_final_JuneJuly, period == "June/July", gen_freq > 1 | mean_prop >= 0.05), aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+
+pdf("~/vsearchr/inst/extdata/figures/PH_final_aug_PresTrim.pdf", height = 5, width = 6.5)
+ggplot(filter(PH_honey_final_Aug, period == "Aug", gen_freq > 1 | mean_prop >= 0.05), aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+
+pdf("~/vsearchr/inst/extdata/figures/PH_final_sept_PresTrim.pdf", height = 5, width = 6.5)
+ggplot(filter(PH_honey_final_Sept, period == "Sept", gen_freq > 1 | mean_prop >= 0.05), aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+
+# pdf("~/vsearchr/inst/extdata/figures/PH_final_period.pdf", height = 5, width = 8.5)
+# ggplot(filter(PH_honey_final_join, !is.na(date)), 
+#        aes(x = reorder(period, date), y = reorder(genus, gen_freq), fill = scaled_prop)) +
+#   geom_tile(width = 0.5, color = "white") +
+#   scale_fill_gradient(low = "gray95", high = "purple") +
+#   theme_bw(8) +
+#   ylab("Genus") +
+#   xlab("Sample") +
+#   labs(fill = "Proportional\nabundance") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# dev.off()
+```

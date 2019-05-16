@@ -1,0 +1,1419 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+### Load vsearch output
+#### CT pollen
+```{r include=FALSE}
+trnL_CT <- load_blast6("~/vsearchr/inst/extdata/trnL_vsearch_CT.output/")
+rbcL_CT <- load_blast6("~/vsearchr/inst/extdata/rbcL_vsearch_CT.output/")
+ITS2_CT <- load_blast6("~/vsearchr/inst/extdata/ITS2_vsearch_CT.output/")
+```
+
+
+### Load taxonomy tables
+#### CT pollen
+```{r include=FALSE}
+trnL_CT_tax <- load_MTXA("~/vsearchr/inst/extdata/trnL_CT_Amplicons2.tax")
+rbcL_CT_tax <- load_MTXA("~/vsearchr/inst/extdata/rbcL_CT_Amplicons.tax")
+ITS2_CT_tax <- load_MTXA("~/vsearchr/inst/extdata/ITS2_CT_Amplicons.tax")
+```
+
+
+### Join vsearch output to taxonomy tables
+#### CT pollen
+```{r include=FALSE}
+trnL_CT_join <- tax_join(trnL_CT, trnL_CT_tax, min_id = 92.5)
+rbcL_CT_join <- tax_join(rbcL_CT, rbcL_CT_tax, min_id = 82.2) # this is the equivalent of 97 considering the 90 N internal gap
+#ITS2_CT_join <- tax_join(ITS2_CT, ITS2_CT_tax, min_id = 92.5)
+ITS2_CT_join <- tax_join(ITS2_CT, ITS2_CT_tax, min_id = 95.0)
+
+trnL_eval <- trnL_CT_join %>% group_by(sample) %>%
+  summarize(reads = n()) %>%
+  arrange(sample)
+
+rbcL_eval <- rbcL_CT_join %>% group_by(sample) %>%
+  summarize(reads = n()) %>%
+  arrange(sample)
+
+ITS2_eval <- ITS2_CT_join %>% group_by(sample) %>%
+  summarize(reads = n()) %>%
+  arrange(sample)
+
+reads_eval <- full_join(trnL_eval, rbcL_eval, by = "sample") %>%
+  full_join(ITS2_eval, by = "sample")
+colnames(reads_eval) <- c("sample", "trnL", "rbcL", "ITS2")
+write_csv(reads_eval, "~/vsearchr/inst/extdata/reads_eval.csv")
+```
+
+
+### Tally genera by sample
+#### CT pollen
+```{r}
+trnL_CT_tally <- tally_gen(trnL_CT_join)
+rbcL_CT_tally <- tally_gen(rbcL_CT_join)
+ITS2_CT_tally <- tally_gen(ITS2_CT_join)
+```
+
+
+### Add sample metadata and create consensus data sets
+#### CT pollen
+```{r include=FALSE}
+### trnL
+trnL_CT_final <- add_meta(trnL_CT_tally, "~/vsearchr/inst/extdata/CT_2015_key.csv")
+CT_genus_summary_trnL <- trnL_CT_final %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n())
+CT_trnL_join <- left_join(trnL_CT_final, CT_genus_summary_trnL, by = "genus")
+
+### rbcL
+rbcL_CT_final <- add_meta(rbcL_CT_tally, "~/vsearchr/inst/extdata/CT_2015_key.csv")
+CT_genus_summary_rbcL <- rbcL_CT_final %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n())
+CT_rbcL_join <- left_join(rbcL_CT_final, CT_genus_summary_rbcL, by = "genus")
+
+### ITS2
+ITS2_CT_final <- add_meta(ITS2_CT_tally, "~/vsearchr/inst/extdata/CT_2015_key.csv")
+CT_genus_summary_ITS2 <- ITS2_CT_final %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n())
+CT_ITS2_join <- left_join(ITS2_CT_final, CT_genus_summary_ITS2, by = "genus")
+
+### consensus join
+CT_consensus <- consensus_xyz_gen(ITS2_CT_final, rbcL_CT_final, trnL_CT_final,
+                                  min_prop = 0.0005)
+CT_genus_summary_consensus <- CT_consensus %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n(),
+            max_prop = max(scaled_prop))
+
+CT_consensus_final <- left_join(CT_consensus, CT_genus_summary_consensus, by = "genus") %>%
+  add_meta("~/vsearchr/inst/extdata/CT_2015_key.csv") %>%
+  filter(!sample %in% c("CT12", "CT13", "CT23", "CT27", "CT36")) # exclude samples with < 400 reads for one or more markers
+```
+
+
+### Plot data
+##### trnL only
+```{r echo=FALSE}
+pdf("~/vsearchr/inst/extdata/figures/CT_metabarcoding_trnL.pdf", width = 8.5, height = 11)
+ggplot(filter(CT_trnL_join), aes(x = date, y = reorder(genus, gen_freq), fill = gen_prop)) +
+  geom_tile(width = 6, color = "black") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(8) +
+  ylab("Genus") +
+  xlab("Sample") +
+  labs(fill = "Proportional\nabundance") +
+  facet_grid(~site) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+```
+
+##### rbcL only
+```{r echo=FALSE}
+pdf("~/vsearchr/inst/extdata/figures/CT_metabarcoding_rbcL.pdf", width = 8.5, height = 11)
+ggplot(filter(CT_rbcL_join), aes(x = date, y = reorder(genus, gen_freq), fill = gen_prop)) +
+  geom_tile(width = 6, color = "black") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(8) +
+  ylab("Genus") +
+  xlab("Sample") +
+  labs(fill = "Proportional\nabundance") +
+  facet_grid(~site) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+```
+
+##### ITS2 only
+```{r}
+pdf("~/vsearchr/inst/extdata/figures/CT_metabarcoding_ITS2.pdf", width = 8.5, height = 11)
+ggplot(filter(CT_ITS2_join), aes(x = date, y = reorder(genus, gen_freq), fill = gen_prop)) +
+  geom_tile(width = 6, color = "black") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(8) +
+  ylab("Genus") +
+  xlab("Sample") +
+  labs(fill = "Proportional\nabundance") +
+  facet_grid(~site) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+```
+
+##### Consensus
+```{r}
+### Untrimmed
+pdf("~/vsearchr/inst/extdata/figures/CT_metabarcoding_consensus.pdf", width = 8.5, height = 8.5)
+ggplot(CT_consensus_final, aes(x = date, y = reorder(genus, gen_freq), fill = scaled_prop)) +
+  geom_tile(width = 6, color = "black") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(10) +
+  ylab("Genus") +
+  xlab("Sample") +
+  labs(fill = "Proportional\nabundance") +
+  facet_grid(~site) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+
+### Filtered to max prop >= 0.05 (to make the plot readable for major taxa)
+pdf("~/vsearchr/inst/extdata/figures/CT_metabarcoding_consensus_trim.pdf", width = 8.5, height = 6.5)
+ggplot(filter(CT_consensus_final, max_prop >= 0.05), aes(x = date, y = reorder(genus, gen_freq), fill = scaled_prop)) +
+  geom_tile(width = 6, color = "black") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(9) +
+  ylab("Genus") +
+  xlab("Sample") +
+  labs(fill = "Proportional\nabundance") +
+  facet_grid(~site) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+```
+
+### Add microscopy data
+```{r}
+micro_dat <- read_csv("~/vsearchr/inst/extdata/micro_dat_v2.csv", col_names = TRUE) %>%
+  rename(micro_vol_prop = prop_vol,
+         micro_ct_prop = prop_count) %>%
+  filter(genus != "undet") %>%
+  #filter(micro_prop >= 0.001) %>%
+  group_by(site, date, genus) %>%
+  summarize(micro_vol_prop = sum(micro_vol_prop),
+            micro_ct_prop = sum(micro_ct_prop))
+CT_genus_summary_micro <- micro_dat %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n(),
+            max_vol_prop = max(micro_vol_prop),
+            max_ct_prop = max(micro_ct_prop))
+CT_micro_join <- left_join(micro_dat, CT_genus_summary_micro, by = "genus") %>%
+  add_meta_micro("~/vsearchr/inst/extdata/CT_2015_key.csv") %>%
+  na.omit()
+```
+
+### Check whether my Genbank reference libs are missing any genera found in the micro data
+```{r}
+micro_anti_trnL <- anti_join(micro_dat, trnL_CT_tax, by = "genus") %>%
+  ungroup() %>%
+  select(genus) %>%
+  unique()
+
+micro_anti_rbcL <- anti_join(micro_dat, rbcL_CT_tax, by = "genus") %>%
+  ungroup() %>%
+  select(genus) %>%
+  unique()
+
+micro_anti_ITS2 <- anti_join(micro_dat, ITS2_CT_tax, by = "genus") %>%
+  ungroup() %>%
+  select(genus) %>%
+  unique()
+
+missing_genera <- bind_rows(micro_anti_trnL, micro_anti_rbcL, micro_anti_ITS2) %>%
+  unique() %>%
+  arrange(genus)
+View(missing_genera)
+```
+
+### Join micro and metabarcoding datasets on shared sites dates
+```{r}
+mol_dat <- CT_consensus_final %>% ungroup() %>%
+  select(sample, site, date, genus, gen_freq, scaled_prop)
+
+shared_sitedates_consensus <- inner_join(CT_micro_join, mol_dat, by = c("site", "date")) %>%
+  select(site, date) %>%
+  unique()
+
+### join
+micromol_dat <- full_join(mol_dat, CT_micro_join, by = c("sample", "site", "date", "genus")) %>%
+  semi_join(shared_sitedates_consensus, by = c("site", "date")) %>%
+  replace_na(list(scaled_prop = 0, micro_vol_prop = 0, micro_ct_prop = 0, gen_freq.x = 0, gen_freq.y = 0)) %>%
+  mutate(shared = case_when(
+  scaled_prop == 0 & micro_ct_prop > 0 ~ "micro_only",
+  scaled_prop > 0 & micro_ct_prop == 0 ~ "mol_only",
+  scaled_prop > 0 | micro_ct_prop > 0 ~ "shared"),
+  shared_log = case_when(
+    shared == "shared" ~ 1,
+    shared != "shared" ~ 0)) %>%
+  select(sample, site, date, genus, gen_freq_mol = gen_freq.x, scaled_prop, micro_vol_prop, micro_ct_prop, gen_freq_micro = gen_freq.y, shared, shared_log)
+
+micromol_dat_genus_summary <- micromol_dat %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n(),
+            max_micro_ct = max(micro_ct_prop),
+            max_micro_vol = max(micro_vol_prop),
+            max_mol = max(scaled_prop))
+
+micromol_dat_final <- left_join(micromol_dat, micromol_dat_genus_summary, by = "genus")
+write_csv(micromol_dat_final, "~/Desktop/micro_mol_comparison.csv")
+
+```
+
+### Try joining micro data to ITS2 only
+```{r}
+mol_dat_ITS2 <- CT_ITS2_join %>% ungroup() %>%
+  select(sample, site, date, genus, gen_prop)
+
+shared_sitedates_consensus_ITS2 <- inner_join(CT_micro_join, mol_dat_ITS2, by = c("site", "date")) %>%
+  select(site, date) %>%
+  unique()
+
+### join
+micromol_dat_ITS2 <- full_join(mol_dat_ITS2, CT_micro_join, by = c("sample", "site", "date", "genus")) %>%
+  semi_join(shared_sitedates_consensus_ITS2, by = c("site", "date")) %>%
+  replace_na(list(gen_prop = 0, micro_vol_prop = 0, micro_ct_prop = 0)) %>%
+  mutate(shared = case_when(
+  gen_prop == 0 & micro_ct_prop > 0 ~ "micro_only",
+  gen_prop > 0 & micro_ct_prop == 0 ~ "mol_only",
+  gen_prop > 0 | micro_ct_prop > 0 ~ "shared"),
+  shared_log = case_when(
+    shared == "shared" ~ 1,
+    shared != "shared" ~ 0)) %>%
+  select(sample, site, date, genus, gen_prop, micro_vol_prop, micro_ct_prop, shared, shared_log)
+
+micromol_dat_genus_summary_ITS2 <- micromol_dat_ITS2 %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n(),
+            max_micro_ct = max(micro_ct_prop),
+            max_micro_vol = max(micro_vol_prop),
+            max_mol = max(gen_prop))
+
+micromol_dat_final_ITS2 <- left_join(micromol_dat_ITS2, micromol_dat_genus_summary_ITS2, by = "genus")
+write_csv(micromol_dat_final_ITS2, "~/Desktop/micro_mol_comparison_ITS2.csv")
+```
+
+### Plot microscopy data
+```{r}
+pdf("~/vsearchr/inst/extdata/figures/CT_micro_major.pdf", width = 8.5, height = 5)
+ggplot(filter(CT_micro_join, max_prop >= 0.05), aes(x = date, y = reorder(genus, gen_freq), fill = micro_prop)) +
+  geom_tile(width = 6, color = "black") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(9) +
+  ylab("Genus") +
+  xlab("Sample") +
+  labs(fill = "Proportional\nabundance") +
+  facet_grid(~site) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+```
+
+### Comparing metabarcoding and microscopy
+```{r}
+### Bar plot of detections
+pdf("~/vsearchr/inst/extdata/figures/CT_mol_v_micro_bar.pdf", width = 8.5, height = 6)
+ggplot(micromol_consensus_join, 
+       aes(x = shared, fill = shared)) +
+  geom_bar() +
+  theme_gray(18) +
+  scale_fill_discrete(name = NULL, labels = c("microscopy", "metabarcoding", "both")) +
+  scale_x_discrete(labels = c("microscopy", "metabarcoding", "both")) +
+  ylab("detections") +
+  xlab(NULL)
+dev.off()
+
+# ITS2 only
+ggplot(micromol_dat_final_ITS2, 
+       aes(x = shared, fill = shared)) +
+  geom_bar() +
+  theme_gray(18) +
+  scale_fill_discrete(name = NULL, labels = c("microscopy", "metabarcoding", "both")) +
+  scale_x_discrete(labels = c("microscopy", "metabarcoding", "both")) +
+  ylab("detections") +
+  xlab(NULL)
+
+ggplot(filter(micromol_dat_final_ITS2, gen_prop >= 0.05 | micro_vol_prop >= 0.05), 
+       aes(x = shared, fill = shared)) +
+  geom_bar() +
+  theme_gray(18) +
+  scale_fill_discrete(name = NULL, labels = c("microscopy", "metabarcoding", "both")) +
+  scale_x_discrete(labels = c("microscopy", "metabarcoding", "both")) +
+  ylab("detections") +
+  xlab(NULL)
+
+ggplot(filter(micromol_dat_final_ITS2, gen_prop >= 0.10 | micro_vol_prop >= 0.10), 
+       aes(x = shared, fill = shared)) +
+  geom_bar() +
+  theme_gray(18) +
+  scale_fill_discrete(name = NULL, labels = c("microscopy", "metabarcoding", "both")) +
+  scale_x_discrete(labels = c("microscopy", "metabarcoding", "both")) +
+  ylab("detections") +
+  xlab(NULL)
+
+### Scatter plot of abundances
+pdf("~/vsearchr/inst/extdata/figures/CT_mol_v_micro_trans.pdf", width = 8.5, height = 6)
+ggplot(filter(micromol_dat_final), 
+       aes(x = sqrt(scaled_prop), y = sqrt(micro_vol_prop), color = shared)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm") +
+  theme_gray(18) +
+  geom_abline(intercept = 0, slope = 1, color = "gray40", linetype = "dashed") +
+  scale_color_discrete(name = NULL, labels = c("microscopy", "metabarcoding", "both")) +
+  xlab(expression(sqrt("read count"))) +
+  ylab(expression(sqrt("grain volume")))
+dev.off()
+
+pdf("~/vsearchr/inst/extdata/figures/CT_mol_v_micro_trans.pdf", width = 8.5, height = 6)
+ggplot(micromol_dat_final, aes(x = sqrt(scaled_prop), y = sqrt(micro_ct_prop), color = shared)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm") +
+  theme_gray(18) +
+  geom_abline(intercept = 0, slope = 1, color = "gray40", linetype = "dashed") +
+  scale_color_discrete(name = NULL, labels = c("microscopy", "metabarcoding", "both")) +
+  xlab(expression(sqrt("read count"))) +
+  ylab(expression(sqrt("grain count")))
+dev.off()
+
+# ITS2 only
+ggplot(micromol_dat_final_ITS2, aes(x = sqrt(gen_prop), y = sqrt(micro_ct_prop), color = shared)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm") +
+  theme_gray(18) +
+  geom_abline(intercept = 0, slope = 1, color = "gray40", linetype = "dashed") +
+  scale_color_discrete(name = NULL, labels = c("microscopy", "metabarcoding", "both")) +
+  xlab(expression(sqrt("read count"))) +
+  ylab(expression(sqrt("grain count")))
+
+### Scatter plot of frequencies
+pdf("~/vsearchr/inst/extdata/figures/CT_mol_v_micro_freq.pdf", width = 8.5, height = 6)
+ggplot(micromol_dat_final, aes(gen_freq_mol, gen_freq_micro, color = shared)) +
+  geom_point(alpha = 0.2) +
+  geom_abline(intercept = 0, slope = 1, color = "gray40", linetype = "dashed") +
+  stat_smooth(method = "lm")
+dev.off()
+
+### Heatmap of agreement
+ggplot(filter(micromol_consensus_join, scaled_prop >= 0.05 | micro_prop >= 0.05), aes(x = date, y = reorder(genus, gen_freq), fill = difference)) +
+  geom_tile(width = 6, color = "black") +
+  scale_fill_gradient(low = "blue", high = "red") +
+  theme_bw(9) +
+  ylab("Genus") +
+  xlab("Sample") +
+  labs(fill = "Difference") +
+  facet_grid(~site) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(filter(micromol_consensus_join, scaled_prop >= 0.05 & micro_prop >= 0.05), aes(x = date, y = reorder(genus, gen_freq), fill = difference)) +
+  geom_tile(width = 6, color = "black") +
+  scale_fill_gradient(low = "blue", high = "red") +
+  theme_bw(9) +
+  ylab("Genus") +
+  xlab("Sample") +
+  labs(fill = "Difference") +
+  facet_grid(~site) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(filter(micromol_consensus_join, scaled_prop >= 0 & micro_prop > 0), aes(x = date, y = reorder(genus, gen_freq), fill = difference)) +
+  geom_tile(width = 6, color = "black") +
+  scale_fill_gradient(low = "blue", high = "red") +
+  theme_bw(9) +
+  ylab("Genus") +
+  xlab("Sample") +
+  labs(fill = "Difference") +
+  facet_grid(~site) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+### Grouped barplot of agreement
+micromol_long <- micromol_dat_final %>% 
+  select(sample, site, date, genus, scaled_prop, micro_vol_prop, micro_ct_prop) %>%
+  gather(metric, value, -sample, -site, -date, -genus)
+
+ggplot(filter(micromol_long, sample == "CT1"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_8/20") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/C0820.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT2"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_9/17") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/B0917.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT3"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("A_7/27") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/A0727.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT4"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("A_6/12") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/A0612.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT5"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_7/8") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/B0708.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT6"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("C_7/16") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/C0716.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT7"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("A_8/31") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/A0831.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT8"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_9/3") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/C0903.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT9"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("C_9/10") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/C0910.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT10"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_9/2") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/B0902.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT11"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_7/15") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/B0715.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT12"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("C_7/2") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/C0702.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT13"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("B_5/27") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/B0527.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT14"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("A_7/7") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/A0707.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT15"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("A_5/13") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/A0513.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT16"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_6/4") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/C0604.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT17"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("C_8/13") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/C0813.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT18"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("C_7/23") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/C0723.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT19"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("A_8/10") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/A0810.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT20"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_8/13") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/B0813.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT21"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("B_6/17") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/B0617.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT22"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("B_9/23") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/B0923.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT23"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("A_6/18") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/A0618.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT24"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_6/11") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/C0611.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT25"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_5/28") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/C0528.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT26"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_6/30") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/B0630.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT27"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("B_6/24") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/B0624.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT28"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("A_5/22") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/A0522.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT29"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("A_9/14") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/A0914.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT30"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("A_9/21") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/A0921.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT31"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_6/10") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/B0610.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT32"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("A_8/3") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/A0803.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT33"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_8/25") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/B0825.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT34"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("A_5/29") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/A0529.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT35"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_7/22") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/B0722.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT36"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("C_8/7") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/C0807.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT37"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_6/25") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/C0625.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT38"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("B_8/4") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/B0804.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT39"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_7/30") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/C0730.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT40"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_8/19") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/C0819.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT41"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_6/3") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/B0603.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT42"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("C_9/18") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/C0918.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long, sample == "CT43"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("A_7/13") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/A0713.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT44"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("A_6/26") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/A0626.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT45"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_8/28") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/C0828.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT46"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_6/19") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/C0619.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long, sample == "CT47"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("A_7/20") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") +
+ggsave("~/vsearchr/inst/extdata/figures/A0720.pdf", width = 6.5, height = 6.5)
+
+
+### Identifying genera detected by each method
+micromol_consensus_join_mol <- filter(micromol_consensus_join, scaled_prop > 0)
+micromol_consensus_join_micro <- filter(micromol_consensus_join, micro_prop > 0)
+shared_genera <- inner_join(micromol_consensus_join_mol, micromol_consensus_join_micro, by = "genus") %>%
+  select(genus) %>%
+  unique()
+mol_genera <- micromol_consensus_join_mol %>% 
+  select(genus) %>%
+  unique()
+micro_genera <- micromol_consensus_join_micro %>% 
+  select(genus) %>%
+  unique()
+
+length(shared_genera$genus) / (length(mol_genera$genus) + length(micro_genera$genus))
+
+length(filter(micromol_consensus_join, shared == "mol_only")$genus)
+length(filter(micromol_consensus_join, shared == "micro_only")$genus)
+length(filter(micromol_consensus_join, shared == "shared")$genus)
+
+length(unique(filter(micromol_consensus_join, shared == "mol_only")$genus))
+length(unique(filter(micromol_consensus_join, shared == "micro_only")$genus))
+length(unique(filter(micromol_consensus_join, shared == "shared")$genus))
+
+### Linear model of abundance
+lm1 <- lm(micro_prop ~ scaled_prop, data = filter(micromol_consensus_join, shared == "shared"))
+summary(lm1)
+
+### Count proportion vs volume proportion
+ggplot(micromol_dat_final, aes(micro_ct_prop, micro_vol_prop)) +
+  geom_point() +
+  stat_smooth(method = "lm")
+
+ggplot(micromol_dat_final, aes(sqrt(micro_ct_prop), sqrt(micro_vol_prop))) +
+  geom_point() +
+  stat_smooth(method = "lm") +
+  xlab("sqrt(count)") +
+  ylab("sqrt(volume)")
+ggsave("~/Desktop/count_vs_volume.pdf")
+```
+
+### Side-by-side barplots ITS2 only
+```{r}
+micromol_long_ITS2 <- micromol_dat_final_ITS2 %>% 
+  select(sample, site, date, genus, gen_prop, micro_vol_prop, micro_ct_prop) %>%
+  gather(metric, value, -sample, -site, -date, -genus)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT1"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_8/20") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") 
+ggsave("~/vsearchr/inst/extdata/figures/C0820.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT2"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_9/17") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") 
+ggsave("~/vsearchr/inst/extdata/figures/B0917.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT3"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("A_7/27") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/A0727.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT4"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("A_6/12") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/A0612.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT5"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_7/8") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") 
+ggsave("~/vsearchr/inst/extdata/figures/B0708.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT6"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("C_7/16") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/C0716.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT7"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("A_8/31") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") 
+ggsave("~/vsearchr/inst/extdata/figures/A0831.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT8"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_9/3") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") 
+ggsave("~/vsearchr/inst/extdata/figures/C0903.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT9"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("C_9/10") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/C0910.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT10"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_9/2") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/B0902.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT11"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_7/15") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+ # scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/B0715.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT12"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("C_7/2") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/C0702.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT13"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("B_5/27") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/B0527.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT14"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("A_7/7") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/A0707.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT15"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("A_5/13") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/A0513.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT16"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_6/4") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") 
+ggsave("~/vsearchr/inst/extdata/figures/C0604.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT17"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("C_8/13") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/C0813.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT18"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("C_7/23") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/C0723.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT19"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("A_8/10") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/A0810.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT20"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_8/13") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") 
+ggsave("~/vsearchr/inst/extdata/figures/B0813.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT21"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("B_6/17") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/B0617.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT22"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("B_9/23") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/B0923.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT23"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("A_6/18") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/A0618.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT24"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_6/11") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/C0611.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT25"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_5/28") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") 
+ggsave("~/vsearchr/inst/extdata/figures/C0528.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT26"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_6/30") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance") 
+ggsave("~/vsearchr/inst/extdata/figures/B0630.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT27"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("B_6/24") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/B0624.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT28"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("A_5/22") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/A0522.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT29"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("A_9/14") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/A0914.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT30"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("A_9/21") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/A0921.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT31"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_6/10") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/B0610.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT32"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("A_8/3") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/A0803.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT33"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_8/25") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/B0825.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT34"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("A_5/29") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/A0529.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT35"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_7/22") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/B0722.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT36"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("C_8/7") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/C0807.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT37"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_6/25") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/C0625.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT38"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("B_8/4") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/B0804.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT39"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_7/30") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/C0730.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT40"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_8/19") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/C0819.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT41"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("B_6/3") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/B0603.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT42"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("C_9/18") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/C0918.pdf", width = 6.5, height = 6.5)
+
+# ggplot(filter(micromol_long_ITS2, sample == "CT43"), aes(x = genus, y = value, fill = metric)) +
+#   geom_bar(stat = "identity", position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   ggtitle("A_7/13") +
+#   geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+#   scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+#   ylab("proportional abundance") +
+# ggsave("~/vsearchr/inst/extdata/figures/A0713.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT44"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("A_6/26") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/A0626.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT45"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_8/28") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/C0828.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT46"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("C_6/19") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/C0619.pdf", width = 6.5, height = 6.5)
+
+ggplot(filter(micromol_long_ITS2, sample == "CT47"), aes(x = genus, y = value, fill = metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("A_7/20") +
+  geom_abline(intercept = 0.05, slope = 0, color = "gray40", linetype = "dashed") +
+  #scale_fill_discrete(name = NULL, labels = c("microscopy (vol)", "microcopy (ct)", "metabarcoding")) +
+  ylab("proportional abundance")
+ggsave("~/vsearchr/inst/extdata/figures/A0720.pdf", width = 6.5, height = 6.5)
+
+```
+
+
+```{r}
+ggplot(micromol_consensus, aes(x = shared, fill = shared)) +
+  geom_bar() +
+  theme_gray(8) 
+# +
+#   facet_grid(site ~ date)
+
+ggplot(filter(micromol_consensus, scaled_prop >= 0.01), 
+       aes(x = shared, fill = shared)) +
+  geom_bar() +
+  geom_bar() +
+  theme_gray(8)
+
+ggplot(filter(micromol_consensus, scaled_prop >= 0.04), 
+       aes(x = shared, fill = shared)) +
+  geom_bar() +
+  geom_bar() +
+  theme_gray(8)
+# +
+#   facet_grid(site ~ date)
+
+ggplot(filter(micromol_consensus, scaled_prop >= 0.05), 
+       aes(x = shared, fill = shared)) +
+  geom_bar() +
+  geom_bar() +
+  theme_gray(8)
+
+ggplot(filter(micromol_consensus, scaled_prop >= 0.10), 
+       aes(x = shared, fill = shared)) +
+  geom_bar() +
+  geom_bar() +
+  theme_gray(8) 
+# +
+#   facet_wrap(. ~ site)
+
+ggplot(filter(micromol_consensus, scaled_prop >= 0.25), 
+       aes(x = shared, fill = shared)) +
+  geom_bar() +
+  geom_bar() +
+  theme_gray(8)
+# +
+#   facet_grid(site ~ date) 
+
+ggplot(filter(micromol_consensus, scaled_prop >= 0.35), 
+       aes(x = shared, fill = shared)) +
+  geom_bar() +
+  geom_bar() +
+  theme_gray(8) 
+# +
+#   facet_grid(site ~ date) 
+
+ggplot(filter(micromol_consensus, scaled_prop >= 0.50), 
+       aes(x = shared, fill = shared)) +
+  geom_bar() +
+  geom_bar() +
+  theme_gray(8)
+# +
+#   facet_grid(site ~ date) 
+
+
+micro_genera <- tibble(unique(micro_dat$genus)) %>%
+  select(genus = 1)
+
+mol_genera <- tibble(unique(CT_consensus_final$genus)) %>%
+  select(genus = 1)
+
+anti_join(micro_genera, mol_genera)
+
+anti_join(mol_genera, micro_genera)
+
+
+ggplot(micromol_consensus, aes(x = scaled_prop, y = shared_log)) +
+  geom_point() +
+  geom_smooth()
+
+ggplot(micromol_consensus, aes(x = gen_freq_mol, y = shared_log)) +
+  geom_point() +
+  geom_smooth()
+
+```
+
+### Plot shared genera only
+```{r}
+ggplot(filter(micromol_consensus, shared == "shared"), 
+       aes(x = date, y = genus)) +
+  geom_tile(width = 6, color = "black") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(8) +
+  ylab("Genus") +
+  xlab("Sample") +
+  labs(fill = "Proportional\nabundance") +
+  facet_grid(~site) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+```{r}
+pdf("~/vsearchr/inst/extdata/figures/CT_genus_hist.pdf", width = 7.5, height = 5)
+ggplot(CT_genus_summary_consensus, aes(reorder(genus, -gen_freq), gen_freq)) +
+  geom_histogram(stat = "identity") +
+  xlab("genus") +
+  ylab("frequency") +
+  theme_gray(8) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+```

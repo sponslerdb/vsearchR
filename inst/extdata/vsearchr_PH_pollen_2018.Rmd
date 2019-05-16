@@ -1,0 +1,325 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+### Load vsearch output
+#### Philly 2017 pollen
+```{r include=FALSE}
+trnL_PH_pollen_2018 <- load_blast6("~/vsearchr/inst/extdata/trnL_vsearch_philly_2018.output/pollen/")
+ITS1_PH_pollen_2018 <- load_blast6("~/vsearchr/inst/extdata/ITS1_vsearch_philly_2018.output/pollen/")
+ITS2_PH_pollen_2018 <- load_blast6("~/vsearchr/inst/extdata/ITS2_vsearch_philly_2018.output/pollen/")
+# write_csv(trnL_PH_pollen_2018, "trnL_PH_pollen_2018.csv")
+# write_csv(ITS1_PH_pollen_2018, "ITS1_PH_pollen_2018.csv")
+# write_csv(ITS2_PH_pollen_2018, "ITS2_PH_pollen_2018.csv")
+trnL_PH_pollen_2018 <- read_csv("trnL_PH_pollen_2018.csv", col_names = TRUE)
+ITS1_PH_pollen_2018 <- read_csv("ITS1_PH_pollen_2018.csv", col_names = TRUE)
+ITS2_PH_pollen_2018 <- read_csv("ITS2_PH_pollen_2018.csv", col_names = TRUE)
+```
+
+### Load taxonomy tables
+#### Philly 2017
+```{r}
+trnL_PH_tax <- load_MTXA("~/vsearchr/inst/extdata/trnL_PH_Amplicons2.tax")
+ITS1_PH_tax <- load_MTXA("~/vsearchr/inst/extdata/ITS1_PH_Amplicons.tax")
+ITS2_PH_tax <- load_MTXA("~/vsearchr/inst/extdata/ITS2_PH_Amplicons.tax")
+```
+
+### Join vsearch output to taxonomy tables
+#### Philly 2017 pollen
+```{r}
+trnL_PH_pollen_join <- tax_join(trnL_PH_pollen_2018, trnL_PH_tax, min_id = 97.0, min_len = 150)
+ITS1_PH_pollen_join <- tax_join(ITS1_PH_pollen_2018, ITS1_PH_tax, min_id = 95.0, min_len = 300)
+ITS2_PH_pollen_join <- tax_join(ITS2_PH_pollen_2018, ITS2_PH_tax, min_id = 95.0, min_len = 300)
+# write_csv(trnL_PH_pollen_join, "trnL_PH_pollen_join_2018.csv")
+# write_csv(ITS1_PH_pollen_join, "ITS1_PH_pollen_join_2018.csv")
+# write_csv(ITS2_PH_pollen_join, "ITS2_PH_pollen_join_2018.csv")
+trnL_PH_pollen_join <- read_csv("trnL_PH_pollen_join_2018.csv", col_names = TRUE)
+ITS1_PH_pollen_join <- read_csv("ITS1_PH_pollen_join_2018.csv", col_names = TRUE)
+ITS2_PH_pollen_join <- read_csv("ITS2_PH_pollen_join_2018.csv", col_names = TRUE)
+```
+
+### Evaluate coverage
+```{r}
+trnL_cov <- trnL_PH_pollen_2018 %>%
+  group_by(sample) %>%
+  summarize(reads = n())
+
+ITS1_cov <- ITS1_PH_pollen_2018 %>%
+  group_by(sample) %>%
+  summarize(reads = n())
+
+ITS2_cov <- ITS2_PH_pollen_2018 %>%
+  group_by(sample) %>%
+  summarize(reads = n())
+
+View(trnL_cov)
+View(ITS1_cov)
+View(ITS2_cov)
+```
+
+### Tally genera by sample
+#### Philly 2018 pollen
+```{r}
+trnL_PH_pollen_tally <- tally_gen(trnL_PH_pollen_join)
+ITS1_PH_pollen_tally <- tally_gen(ITS1_PH_pollen_join)
+ITS2_PH_pollen_tally <- tally_gen(ITS2_PH_pollen_join)
+```
+
+### Add sample metadata 
+#### Philly 2018 pollen
+```{r}
+trnL_PH_pollen_final <- add_meta(trnL_PH_pollen_tally, "~/vsearchr/inst/extdata/PH_2018_key.csv")
+ITS1_PH_pollen_final <- add_meta(ITS1_PH_pollen_tally, "~/vsearchr/inst/extdata/PH_2018_key.csv")
+ITS2_PH_pollen_final <- add_meta(ITS2_PH_pollen_tally, "~/vsearchr/inst/extdata/PH_2018_key.csv")
+```
+
+### Create consensus data sets, create genus summary fields
+```{r}
+PH_pollen_consensus <- consensus_xyz_gen(trnL_PH_pollen_final, ITS1_PH_pollen_final, ITS2_PH_pollen_final,
+                                         min_prop = 0.0005) %>%
+  add_meta("~/vsearchr/inst/extdata/PH_2018_key.csv") %>%
+  mutate(period = case_when(date > "2018-05-01" & date < "2018-06-01" ~ "May",
+                            date > "2018-06-01" & date < "2018-07-01" ~ "June",
+                            date > "2018-07-01" & date < "2018-08-01" ~ "July",
+                            date > "2018-08-01" & date < "2018-09-01" ~ "Aug",
+                            date > "2018-09-01" & date < "2018-10-01" ~ "Sept",
+                            date > "2018-10-01" & date < "2018-11-01" ~ "Oct",
+                            is.na(date) & site == "Frankford" ~ "Sept",
+                            is.na(date) & site == "Mayfair" ~ "Sept"))
+
+PH_pollen_consensus_May <- filter(PH_pollen_consensus, period == "May")
+PH_pollen_consensus_June <- filter(PH_pollen_consensus, period == "June")
+PH_pollen_consensus_July <- filter(PH_pollen_consensus, period == "July")
+PH_pollen_consensus_Aug <- filter(PH_pollen_consensus, period == "Aug")
+PH_pollen_consensus_Sept <- filter(PH_pollen_consensus, period == "Sept")
+PH_pollen_consensus_Oct <- filter(PH_pollen_consensus, period == "Oct")
+
+PH_pollen_genus_summary <- PH_pollen_consensus %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n(),
+            max_prop = max(scaled_prop))
+
+PH_pollen_genus_summary_May <- PH_pollen_consensus_May %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n(),
+            mean_prop = sum(scaled_prop)/12,
+            max_prop = max(scaled_prop)) 
+
+PH_pollen_genus_summary_June <- PH_pollen_consensus_June %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n(),
+            mean_prop = sum(scaled_prop)/12,
+            max_prop = max(scaled_prop)) 
+
+PH_pollen_genus_summary_July <- PH_pollen_consensus_July %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n(),
+            mean_prop = sum(scaled_prop)/12,
+            max_prop = max(scaled_prop)) 
+
+PH_pollen_genus_summary_Aug <- PH_pollen_consensus_Aug %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n(),
+            mean_prop = sum(scaled_prop)/12,
+            max_prop = max(scaled_prop)) 
+
+PH_pollen_genus_summary_Sept <- PH_pollen_consensus_Sept %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n(),
+            mean_prop = sum(scaled_prop)/12,
+            max_prop = max(scaled_prop)) 
+
+PH_pollen_genus_summary_Oct <- PH_pollen_consensus_Oct %>%
+  group_by(genus) %>%
+  summarize(gen_freq = n(),
+            mean_prop = sum(scaled_prop)/12,
+            max_prop = max(scaled_prop)) 
+
+PH_pollen_final <- left_join(PH_pollen_consensus, PH_pollen_genus_summary, by = "genus")
+PH_pollen_final_May <- left_join(PH_pollen_consensus_May, PH_pollen_genus_summary_May, by = "genus")
+PH_pollen_final_June <- left_join(PH_pollen_consensus_June, PH_pollen_genus_summary_June, by = "genus")
+PH_pollen_final_July <- left_join(PH_pollen_consensus_July, PH_pollen_genus_summary_July, by = "genus")
+PH_pollen_final_Aug <- left_join(PH_pollen_consensus_Aug, PH_pollen_genus_summary_Aug, by = "genus")
+PH_pollen_final_Sept <- left_join(PH_pollen_consensus_Sept, PH_pollen_genus_summary_Sept, by = "genus")
+PH_pollen_final_Oct <- left_join(PH_pollen_consensus_Oct, PH_pollen_genus_summary_Oct, by = "genus")
+
+write_csv(PH_pollen_final, "~/vsearchr/inst/extdata/output_2018/PH_2018_pollen.csv")
+```
+
+### Plot data 
+#### Philly 2017 pollen
+##### trnL only
+```{r}
+ggplot(filter(trnL_PH_pollen_final, gen_prop >= 0.01), aes(x = date, y = genus, fill = gen_prop)) +
+  geom_tile(width = 32, color = "white") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Sample") +
+  labs(fill = "Proportional\nabundance") +
+  facet_grid(~site) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+##### ITS1 only
+```{r}
+ggplot(filter(ITS1_PH_pollen_final, gen_prop >= 0.01), aes(x = date, y = genus, fill = gen_prop)) +
+  geom_tile(width = 12, color = "white") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Sample") +
+  labs(fill = "Proportional\nabundance") +
+  facet_grid(~site) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+##### ITS2 only
+```{r}
+ggplot(filter(ITS2_PH_pollen_final, gen_prop >= 0.01), aes(x = date, y = genus, fill = gen_prop)) +
+  geom_tile(width = 12, color = "white") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Sample") +
+  labs(fill = "Proportional\nabundance") +
+  facet_grid(~site) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+##### 2-of-3 consensus
+```{r}
+ggplot(PH_pollen_final, aes(x = date, y = reorder(genus, gen_freq), fill = scaled_prop)) +
+  geom_tile(width = 30, color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(4) +
+  ylab("Genus") +
+  xlab("Sample") +
+  labs(fill = "Proportional\nabundance") +
+  facet_grid(~site) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(PH_pollen_final_May, aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(PH_pollen_final_June, aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(PH_pollen_final_July, aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(PH_pollen_final_Aug, aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(PH_pollen_final_Sept, aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(PH_pollen_final_Oct, aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+### Truncated for presentation
+```{r}
+ggplot(filter(PH_pollen_final_May, max_prop >= 0.05), aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("~/Desktop/may2018_pollen.png", device = "png")
+
+ggplot(filter(PH_pollen_final_June, max_prop >= 0.05), aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("~/Desktop/June2018_pollen.png", device = "png")
+
+
+ggplot(filter(PH_pollen_final_July, max_prop >= 0.05), aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("~/Desktop/july2018_pollen.png", device = "png")
+
+
+ggplot(filter(PH_pollen_final_Aug, max_prop >= 0.05), aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("~/Desktop/august2018_pollen.png", device = "png")
+
+
+ggplot(filter(PH_pollen_final_Sept, max_prop >= 0.05), aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("~/Desktop/sept2018_pollen.png", device = "png")
+
+
+ggplot(filter(PH_pollen_final_Oct, max_prop >= 0.05), aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
+  geom_tile(color = "gray40") +
+  scale_fill_gradient(low = "gray95", high = "purple") +
+  theme_bw(12) +
+  ylab("Genus") +
+  xlab("Site") +
+  labs(fill = "Proportional\nabundance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("~/Desktop/october2018_pollen.png", device = "png")
+
+```
