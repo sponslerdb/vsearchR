@@ -81,9 +81,9 @@ load_MTXA <- function(x) {
 #'
 #' @param seqs vsearch output table
 #' @param tax taxonomy table
-tax_join <- function(seqs, tax, min_id) {
+tax_join <- function(seqs, tax, min_id, min_len) {
   left_join(seqs, tax, by = "sseqid") %>%
-    filter(pident >= min_id)
+    filter(pident >= min_id & length >= min_len)
 }
 
 #' \code{tally_gen} sums reads by genus for each sample, calculates proportional abundance, and culls rare genera whose proportional abundance is less than min_prop
@@ -100,6 +100,21 @@ tally_gen <- function(x, min_prop = 0.0005) {
     rename(read_count = n)
 }
 
+#' \code{tally_fam} sums reads by famiy for each sample, calculates proportional abundance, and culls rare families whose proportional abundance is less than min_prop
+#'
+#' @param x A tibble produced by \code{taxonomize}
+#' @param min_prop A real number specifying the minumum proportional abundance below which a taxon will be dropped as a likely false positive
+#' @return A tibble
+tally_fam <- function(x, min_prop = 0.0005) {
+  x %>%
+    group_by(sample, family) %>%
+    tally() %>% # sum reads by genus within each sample
+    mutate(fam_prop = n/sum(n)) %>% # turn counts to proportions
+    filter(fam_prop >= min_prop) %>% # remove genera falling below min_prop in abundance
+    rename(read_count = n)
+}
+
+
 
 #' \code{add_meta} joins a set of metadata to data by sample field
 #'
@@ -114,6 +129,30 @@ add_meta <- function(x, y) {
     arrange(site, date)
 }
 
+#' \code{add_meta_rbcL} joins a set of metadata to data by sample field
+#'
+#' @param x a filepath to metadata file containing site field shared with data
+#' @return a tibble containing site, hive, and date for each sample
+add_meta_rbcL <- function(x, y) {
+  key <- read_csv(y, col_names = TRUE) %>%
+    select(sample, site, date)
+  full_join(x, key, by = c("sample_mod" = "sample")) %>%
+    mutate(date = lubridate::as_date(date)) %>%
+    select(sample, site, date, everything()) %>%
+    arrange(site, date)
+}
+
+#' \code{add_meta_micro} joins a set of metadata to data by sample field
+#'
+#' @param x a filepath to metadata file containing site field shared with data
+#' @return a tibble containing site, hive, and date for each sample
+add_meta_micro <- function(x, y) {
+  key <- read_csv(y, col_names = TRUE) %>%
+    select(sample, site, date)
+  full_join(x, key, by = c("site", "date")) %>%
+    select(sample, site, date, everything()) %>%
+    arrange(site, date)
+}
 
 consensus_xy <- function(x, y) {
   inner_join(x, y, by = c("sample", "genus")) %>%
