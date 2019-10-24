@@ -1,0 +1,97 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+### Load vsearch output
+#### Philly 2017 blanks
+```{r include=FALSE}
+trnL_PH_blanks_2017 <- load_blast6("~/vsearchr/inst/extdata/trnL_vsearch_philly_2017.output/blanks/")
+ITS1_PH_blanks_2017 <- load_blast6("~/vsearchr/inst/extdata/ITS1_vsearch_philly_2017.output/blanks/")
+ITS2_PH_blanks_2017 <- load_blast6("~/vsearchr/inst/extdata/ITS2_vsearch_philly_2017.output/blanks/")
+```
+
+### Load taxonomy tables
+#### Philly 2017
+```{r}
+trnL_PH_tax <- load_MTXA("~/vsearchr/inst/extdata/trnL_PH_Amplicons2.tax")
+ITS1_PH_tax <- load_MTXA("~/vsearchr/inst/extdata/ITS1_PH_Amplicons.tax")
+ITS2_PH_tax <- load_MTXA("~/vsearchr/inst/extdata/ITS2_PH_Amplicons.tax")
+```
+
+### Join vsearch output to taxonomy tables
+#### Philly 2017 blanks
+```{r}
+trnL_PH_blanks_2017_join <- tax_join(trnL_PH_blanks_2017, trnL_PH_tax, min_id = 97.0, min_len = 150)
+ITS1_PH_blanks_2017_join <- tax_join(ITS1_PH_blanks_2017, ITS1_PH_tax, min_id = 95.0, min_len = 300)
+ITS2_PH_blanks_2017_join <- tax_join(ITS2_PH_blanks_2017, ITS2_PH_tax, min_id = 95.0, min_len = 300)
+```
+
+### Tally genera by sample
+#### Philly 2017 blanks
+```{r}
+trnL_PH_blanks_2017_tally <- tally_gen(trnL_PH_blanks_2017_join) %>%
+  select(sample, genus, read_count) 
+
+ITS1_PH_blanks_2017_tally <- tally_gen(ITS1_PH_blanks_2017_join) %>%
+ select(sample, genus, read_count) 
+
+ITS2_PH_blanks_2017_tally <- tally_gen(ITS2_PH_blanks_2017_join) %>%
+ select(sample, genus, read_count) 
+
+
+trnL_PH_blanks_2017_read_summary <- trnL_PH_blanks_2017_tally %>%
+  group_by(sample) %>%
+  summarize(total_reads = sum(read_count)) %>%
+  mutate(class = case_when(
+    grepl("library", sample) ~ "lib",
+    grepl("template", sample) ~ "temp"
+  ))
+
+ITS1_PH_blanks_2017_read_summary <- ITS1_PH_blanks_2017_tally %>%
+  group_by(sample) %>%
+  summarize(total_reads = sum(read_count)) %>%
+  mutate(class = case_when(
+    grepl("library", sample) ~ "lib",
+    grepl("template", sample) ~ "temp"
+  ))
+
+ITS2_PH_blanks_2017_read_summary <- ITS2_PH_blanks_2017_tally %>%
+  group_by(sample) %>%
+  summarize(total_reads = sum(read_count)) %>%
+  mutate(class = case_when(
+    grepl("library", sample) ~ "lib",
+    grepl("template", sample) ~ "temp"
+  ))
+
+write_csv(trnL_PH_blanks_2017_tally, "~/vsearchr/inst/extdata/output_2017/trnL_control_tally_2017.csv")
+write_csv(ITS1_PH_blanks_2017_tally, "~/vsearchr/inst/extdata/output_2017/ITS1_control_tally_2017.csv")
+write_csv(ITS2_PH_blanks_2017_tally, "~/vsearchr/inst/extdata/output_2017/ITS2_control_tally_2017.csv")
+
+write_csv(trnL_PH_blanks_2017_read_summary, "~/vsearchr/inst/extdata/output_2017/trnL_control_read_summary_2017.csv")
+write_csv(ITS1_PH_blanks_2017_read_summary, "~/vsearchr/inst/extdata/output_2017/ITS1_control_read_summary_2017.csv")
+write_csv(ITS2_PH_blanks_2017_read_summary, "~/vsearchr/inst/extdata/output_2017/ITS2_control_read_summary_2017.csv")
+```
+
+### Plot
+```{r}
+ggplot(trnL_PH_blanks_2017_read_summary, aes(x = sample, y = sqrt(total_reads))) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle("trnL")
+
+ggplot(ITS1_PH_blanks_2017_read_summary, aes(x = sample, y = sqrt(total_reads))) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle("ITS1")
+
+ggplot(ITS2_PH_blanks_2017_read_summary, aes(x = sample, y = sqrt(total_reads))) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle("ITS2")
+
+
+ggplot(trnL_PH_blanks_2017_read_summary, aes(x = class, y = total_reads)) +
+  geom_boxplot()
+
+```

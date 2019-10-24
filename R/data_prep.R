@@ -24,7 +24,7 @@ proc_blast6 <- function(x) {
                             "evalue", "bitscore"),
            guess_max = 100000) %>% # it is necessary to increase guess_max so that it will assign the correct data type and avoid parsing errors
   mutate(sample = rep(str_extract(x, "\\w+\\d+"))) %>% # add sample field
-  select(sample, qseqid, sseqid, pident, length, gapopen, qstart, qend, sstart, send, evalue, bitscore) %>%
+  dplyr::select(sample, qseqid, sseqid, pident, length, gapopen, qstart, qend, sstart, send, evalue, bitscore) %>%
     group_by(sample, qseqid) %>%
     slice(1)
 }
@@ -55,7 +55,7 @@ proc_blast6_alt <- function(x) {
                             "evalue", "bitscore"),
            guess_max = 100000) %>% # it is necessary to increase guess_max so that it will assign the correct data type and avoid parsing errors
     mutate(sample = rep(x)) %>% # add sample field
-    select(sample, qseqid, sseqid, pident, length, gapopen, qstart, qend, sstart, send, evalue, bitscore) %>%
+    dplyr::select(sample, qseqid, sseqid, pident, length, gapopen, qstart, qend, sstart, send, evalue, bitscore) %>%
     group_by(sample, qseqid) %>%
     slice(1)
 }
@@ -70,7 +70,7 @@ load_MTXA <- function(x) {
     separate(tax_tree, c("kingdom", "phylum", "class", "order",
                          "family", "genus", "species", "x"),
              fill = "warn", sep = ";", remove = TRUE) %>%
-    select(sseqid, family, genus, species) %>%
+    dplyr::select(sseqid, family, genus, species) %>%
     mutate(family = str_remove(family, "f__"),
            genus = str_remove(genus, "g__"),
            species = str_remove(species, "s__"))
@@ -122,10 +122,10 @@ tally_fam <- function(x, min_prop = 0.0005) {
 #' @return a tibble containing site, hive, and date for each sample
 add_meta <- function(x, y) {
   key <- read_csv(y, col_names = TRUE) %>%
-    select(sample, site, date)
+    dplyr::select(sample, site, date)
   full_join(x, key, by = "sample") %>%
     mutate(date = lubridate::as_date(date)) %>%
-    select(sample, site, date, everything()) %>%
+    dplyr::select(sample, site, date, everything()) %>%
     arrange(site, date)
 }
 
@@ -135,10 +135,10 @@ add_meta <- function(x, y) {
 #' @return a tibble containing site, hive, and date for each sample
 add_meta_rbcL <- function(x, y) {
   key <- read_csv(y, col_names = TRUE) %>%
-    select(sample, site, date)
+    dplyr::select(sample, site, date)
   full_join(x, key, by = c("sample_mod" = "sample")) %>%
     mutate(date = lubridate::as_date(date)) %>%
-    select(sample, site, date, everything()) %>%
+    dplyr::select(sample, site, date, everything()) %>%
     arrange(site, date)
 }
 
@@ -148,16 +148,16 @@ add_meta_rbcL <- function(x, y) {
 #' @return a tibble containing site, hive, and date for each sample
 add_meta_micro <- function(x, y) {
   key <- read_csv(y, col_names = TRUE) %>%
-    select(sample, site, date)
+    dplyr::select(sample, site, date)
   full_join(x, key, by = c("site", "date")) %>%
-    select(sample, site, date, everything()) %>%
+    dplyr::select(sample, site, date, everything()) %>%
     arrange(site, date)
 }
 
 consensus_xy <- function(x, y) {
   inner_join(x, y, by = c("sample", "genus")) %>%
     mutate(mean_gen_prop = (gen_prop.x + gen_prop.y)/2) %>%
-    select(sample, site = site.x, date = date.x, genus, gen_prop.x, gen_prop.y, mean_gen_prop) %>%
+    dplyr::select(sample, site = site.x, date = date.x, genus, gen_prop.x, gen_prop.y, mean_gen_prop) %>%
     group_by(sample) %>%
     mutate(scaled_prop = mean_gen_prop*(1/sum(mean_gen_prop)))
 }
@@ -168,7 +168,7 @@ additive_xy <- function(x, y) {
     mutate(mean_gen_prop = (gen_prop.x + gen_prop.y)/2,
            site = coalesce(site.x, site.y),
            date = coalesce(date.x, date.y)) %>%
-    select(sample, site, date, genus, gen_prop.x, gen_prop.y, mean_gen_prop) %>%
+    dplyr::select(sample, site, date, genus, gen_prop.x, gen_prop.y, mean_gen_prop) %>%
     group_by(sample) %>%
     mutate(scaled_prop = mean_gen_prop*(1/sum(mean_gen_prop)))
 }
@@ -182,25 +182,25 @@ additive_xy <- function(x, y) {
 consensus_xyz_gen <- function(x, y, z, min_prop) {
   # taxa common to markers x and y
   xy <- inner_join(x, y, by = c("sample", "genus")) %>%
-    select(sample, genus)
+    dplyr::select(sample, genus)
   # taxa common to markers x and z
   xz <- inner_join(x, z, by = c("sample", "genus")) %>%
-    select(sample, genus)
+    dplyr::select(sample, genus)
   # taxa common to markers y and z
   yz <- inner_join(y, z, by = c("sample", "genus")) %>%
-    select(sample, genus)
+    dplyr::select(sample, genus)
   # taxa common to any two of x, y, and z
   sieve <- xy %>%
     full_join(xz, by = c("sample", "genus")) %>%
     full_join(yz, by = c("sample", "genus")) %>%
-    select(sample, genus)
+    dplyr::select(sample, genus)
   # filter original marker datasets by the taxa in the sieve dataset created above
   x_sieve <- semi_join(x, sieve, b = c("sample", "genus")) %>%
-    select(sample, genus, gen_prop)
+    dplyr::select(sample, genus, gen_prop)
   y_sieve <- semi_join(y, sieve, b = c("sample", "genus")) %>%
-    select(sample, genus, gen_prop)
+    dplyr::select(sample, genus, gen_prop)
   z_sieve <- semi_join(z, sieve, b = c("sample", "genus")) %>%
-    select(sample, genus, gen_prop)
+    dplyr::select(sample, genus, gen_prop)
   # join filtered marker datasets
   out <- full_join(x_sieve, y_sieve, by = c("sample", "genus")) %>%
     full_join(z_sieve, by = c("sample", "genus")) %>%

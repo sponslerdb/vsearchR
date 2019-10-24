@@ -4,21 +4,19 @@ output: html_notebook
 ---
 
 ### Load vsearch output
-#### Philly 2017 pollen
 ```{r include=FALSE}
 trnL_PH_pollen_2018 <- load_blast6("~/vsearchr/inst/extdata/trnL_vsearch_philly_2018.output/pollen/")
 ITS1_PH_pollen_2018 <- load_blast6("~/vsearchr/inst/extdata/ITS1_vsearch_philly_2018.output/pollen/")
 ITS2_PH_pollen_2018 <- load_blast6("~/vsearchr/inst/extdata/ITS2_vsearch_philly_2018.output/pollen/")
-# write_csv(trnL_PH_pollen_2018, "trnL_PH_pollen_2018.csv")
-# write_csv(ITS1_PH_pollen_2018, "ITS1_PH_pollen_2018.csv")
-# write_csv(ITS2_PH_pollen_2018, "ITS2_PH_pollen_2018.csv")
-trnL_PH_pollen_2018 <- read_csv("trnL_PH_pollen_2018.csv", col_names = TRUE)
-ITS1_PH_pollen_2018 <- read_csv("ITS1_PH_pollen_2018.csv", col_names = TRUE)
-ITS2_PH_pollen_2018 <- read_csv("ITS2_PH_pollen_2018.csv", col_names = TRUE)
+write_csv(trnL_PH_pollen_2018, "~/vsearchr/inst/extdata/trnL_PH_pollen_2018.csv")
+write_csv(ITS1_PH_pollen_2018, "~/vsearchr/inst/extdata/ITS1_PH_pollen_2018.csv")
+write_csv(ITS2_PH_pollen_2018, "~/vsearchr/inst/extdata/ITS2_PH_pollen_2018.csv")
+trnL_PH_pollen_2018 <- read_csv("~/vsearchr/inst/extdata/trnL_PH_pollen_2018.csv", col_names = TRUE)
+ITS1_PH_pollen_2018 <- read_csv("~/vsearchr/inst/extdata/ITS1_PH_pollen_2018.csv", col_names = TRUE)
+ITS2_PH_pollen_2018 <- read_csv("~/vsearchr/inst/extdata/ITS2_PH_pollen_2018.csv", col_names = TRUE)
 ```
 
 ### Load taxonomy tables
-#### Philly 2017
 ```{r}
 trnL_PH_tax <- load_MTXA("~/vsearchr/inst/extdata/trnL_PH_Amplicons2.tax")
 ITS1_PH_tax <- load_MTXA("~/vsearchr/inst/extdata/ITS1_PH_Amplicons.tax")
@@ -26,17 +24,16 @@ ITS2_PH_tax <- load_MTXA("~/vsearchr/inst/extdata/ITS2_PH_Amplicons.tax")
 ```
 
 ### Join vsearch output to taxonomy tables
-#### Philly 2017 pollen
 ```{r}
-trnL_PH_pollen_join <- tax_join(trnL_PH_pollen_2018, trnL_PH_tax, min_id = 97.0, min_len = 150)
-ITS1_PH_pollen_join <- tax_join(ITS1_PH_pollen_2018, ITS1_PH_tax, min_id = 95.0, min_len = 300)
-ITS2_PH_pollen_join <- tax_join(ITS2_PH_pollen_2018, ITS2_PH_tax, min_id = 95.0, min_len = 300)
-# write_csv(trnL_PH_pollen_join, "trnL_PH_pollen_join_2018.csv")
-# write_csv(ITS1_PH_pollen_join, "ITS1_PH_pollen_join_2018.csv")
-# write_csv(ITS2_PH_pollen_join, "ITS2_PH_pollen_join_2018.csv")
-trnL_PH_pollen_join <- read_csv("trnL_PH_pollen_join_2018.csv", col_names = TRUE)
-ITS1_PH_pollen_join <- read_csv("ITS1_PH_pollen_join_2018.csv", col_names = TRUE)
-ITS2_PH_pollen_join <- read_csv("ITS2_PH_pollen_join_2018.csv", col_names = TRUE)
+trnL_PH_pollen_2018_join <- tax_join(trnL_PH_pollen_2018, trnL_PH_tax, min_id = 97.0, min_len = 150)
+ITS1_PH_pollen_2018_join <- tax_join(ITS1_PH_pollen_2018, ITS1_PH_tax, min_id = 95.0, min_len = 300)
+ITS2_PH_pollen_2018_join <- tax_join(ITS2_PH_pollen_2018, ITS2_PH_tax, min_id = 95.0, min_len = 300)
+write_csv(trnL_PH_pollen_2018_join, "~/vsearchr/inst/extdata/trnL_PH_pollen_join_2018.csv")
+write_csv(ITS1_PH_pollen_2018_join, "~/vsearchr/inst/extdata/ITS1_PH_pollen_join_2018.csv")
+write_csv(ITS2_PH_pollen_2018_join, "~/vsearchr/inst/extdata/ITS2_PH_pollen_join_2018.csv")
+trnL_PH_pollen_2018_join <- read_csv("~/vsearchr/inst/extdata/trnL_PH_pollen_join_2018.csv", col_names = TRUE)
+ITS1_PH_pollen_2018_join <- read_csv("~/vsearchr/inst/extdata/ITS1_PH_pollen_join_2018.csv", col_names = TRUE)
+ITS2_PH_pollen_2018_join <- read_csv("~/vsearchr/inst/extdata/ITS2_PH_pollen_join_2018.csv", col_names = TRUE)
 ```
 
 ### Evaluate coverage
@@ -53,21 +50,21 @@ ITS2_cov <- ITS2_PH_pollen_2018 %>%
   group_by(sample) %>%
   summarize(reads = n())
 
-View(trnL_cov)
-View(ITS1_cov)
-View(ITS2_cov)
+cov <- full_join(trnL_cov, ITS1_cov, by = "sample") %>%
+  full_join(ITS2_cov, by = "sample") %>%
+  select(sample, trnL = 2, ITS1 = 3, ITS2 = 4)
+
+write_csv(cov, "~/vsearchr/inst/extdata/output_2018/pollen_2018_coverage")
 ```
 
 ### Tally genera by sample
-#### Philly 2018 pollen
 ```{r}
-trnL_PH_pollen_tally <- tally_gen(trnL_PH_pollen_join)
-ITS1_PH_pollen_tally <- tally_gen(ITS1_PH_pollen_join)
-ITS2_PH_pollen_tally <- tally_gen(ITS2_PH_pollen_join)
+trnL_PH_pollen_tally <- tally_gen(trnL_PH_pollen_2018_join)
+ITS1_PH_pollen_tally <- tally_gen(ITS1_PH_pollen_2018_join)
+ITS2_PH_pollen_tally <- tally_gen(ITS2_PH_pollen_2018_join)
 ```
 
 ### Add sample metadata 
-#### Philly 2018 pollen
 ```{r}
 trnL_PH_pollen_final <- add_meta(trnL_PH_pollen_tally, "~/vsearchr/inst/extdata/PH_2018_key.csv")
 ITS1_PH_pollen_final <- add_meta(ITS1_PH_pollen_tally, "~/vsearchr/inst/extdata/PH_2018_key.csv")
@@ -145,10 +142,17 @@ PH_pollen_final_Sept <- left_join(PH_pollen_consensus_Sept, PH_pollen_genus_summ
 PH_pollen_final_Oct <- left_join(PH_pollen_consensus_Oct, PH_pollen_genus_summary_Oct, by = "genus")
 
 write_csv(PH_pollen_final, "~/vsearchr/inst/extdata/output_2018/PH_2018_pollen.csv")
+write_csv(PH_pollen_final_May, "~/vsearchr/inst/extdata/output_2018/PH_2018_pollen_may.csv")
+write_csv(PH_pollen_final_June, "~/vsearchr/inst/extdata/output_2018/PH_2018_pollen_jun.csv")
+write_csv(PH_pollen_final_July, "~/vsearchr/inst/extdata/output_2018/PH_2018_pollen_jul.csv")
+write_csv(PH_pollen_final_Aug, "~/vsearchr/inst/extdata/output_2018/PH_2018_pollen_aug.csv")
+write_csv(PH_pollen_final_Sept, "~/vsearchr/inst/extdata/output_2018/PH_2018_pollen_sep.csv")
+write_csv(PH_pollen_final_Oct, "~/vsearchr/inst/extdata/output_2018/PH_2018_pollen_oct.csv")
+
+#PH_pollen_final <- read_csv("~/vsearchr/inst/extdata/output_2018/PH_2018_pollen.csv")
 ```
 
 ### Plot data 
-#### Philly 2017 pollen
 ##### trnL only
 ```{r}
 ggplot(filter(trnL_PH_pollen_final, gen_prop >= 0.01), aes(x = date, y = genus, fill = gen_prop)) +
@@ -199,6 +203,7 @@ ggplot(PH_pollen_final, aes(x = date, y = reorder(genus, gen_freq), fill = scale
   labs(fill = "Proportional\nabundance") +
   facet_grid(~site) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("./inst/extdata/output_2018/pollen_2018.pdf")
 
 ggplot(PH_pollen_final_May, aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
   geom_tile(color = "gray40") +
@@ -208,6 +213,7 @@ ggplot(PH_pollen_final_May, aes(x = site, y = reorder(genus, mean_prop), fill = 
   xlab("Site") +
   labs(fill = "Proportional\nabundance") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("./inst/extdata/output_2018/pollen_2018_may.pdf", width = 6, height = 8)
 
 ggplot(PH_pollen_final_June, aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
   geom_tile(color = "gray40") +
@@ -217,6 +223,8 @@ ggplot(PH_pollen_final_June, aes(x = site, y = reorder(genus, mean_prop), fill =
   xlab("Site") +
   labs(fill = "Proportional\nabundance") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("./inst/extdata/output_2018/pollen_2018_june.pdf", width = 6, height = 8)
+
 
 ggplot(PH_pollen_final_July, aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
   geom_tile(color = "gray40") +
@@ -226,6 +234,8 @@ ggplot(PH_pollen_final_July, aes(x = site, y = reorder(genus, mean_prop), fill =
   xlab("Site") +
   labs(fill = "Proportional\nabundance") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("./inst/extdata/output_2018/pollen_2018_july.pdf", width = 6, height = 8)
+
 
 ggplot(PH_pollen_final_Aug, aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
   geom_tile(color = "gray40") +
@@ -235,6 +245,8 @@ ggplot(PH_pollen_final_Aug, aes(x = site, y = reorder(genus, mean_prop), fill = 
   xlab("Site") +
   labs(fill = "Proportional\nabundance") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("./inst/extdata/output_2018/pollen_2018_aug.pdf", width = 6, height = 8)
+
 
 ggplot(PH_pollen_final_Sept, aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
   geom_tile(color = "gray40") +
@@ -244,6 +256,8 @@ ggplot(PH_pollen_final_Sept, aes(x = site, y = reorder(genus, mean_prop), fill =
   xlab("Site") +
   labs(fill = "Proportional\nabundance") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("./inst/extdata/output_2018/pollen_2018_sept.pdf", width = 6, height = 8)
+
 
 ggplot(PH_pollen_final_Oct, aes(x = site, y = reorder(genus, mean_prop), fill = scaled_prop)) +
   geom_tile(color = "gray40") +
@@ -253,6 +267,8 @@ ggplot(PH_pollen_final_Oct, aes(x = site, y = reorder(genus, mean_prop), fill = 
   xlab("Site") +
   labs(fill = "Proportional\nabundance") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("./inst/extdata/output_2018/pollen_2018_oct.pdf", width = 6, height = 8)
+
 ```
 
 
@@ -322,4 +338,425 @@ ggplot(filter(PH_pollen_final_Oct, max_prop >= 0.05), aes(x = site, y = reorder(
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ggsave("~/Desktop/october2018_pollen.png", device = "png")
 
+```
+
+
+### Woody vs herb analysis
+```{r}
+pollen_may_form <- PH_pollen_final_May %>%
+  ungroup() %>%
+  select(genus, mean_prop) %>%
+  unique() %>%
+  arrange(-mean_prop) %>%
+  mutate(cum_prop = cumsum(mean_prop)) %>%
+  filter(cum_prop <= 0.90) %>%
+  mutate(
+    form = case_when(
+      genus == "Salix" ~ "woody",
+      genus == "Acer" ~ "woody",
+      genus == "Quercus" ~ "woody",
+      genus == "Malus" ~ "woody",
+      genus == "Platanus" ~ "woody",
+      genus == "Fraxinus" ~ "woody",
+      genus == "Photinia" ~ "woody",
+      genus == "Paulownia" ~ "woody",
+      genus == "Taraxacum" ~ "herb",
+      genus == "Cercis" ~ "woody",
+      genus == "Halesia" ~ "woody",
+      genus == "Morus" ~ "woody",
+      genus == "Pyrus" ~ "woody",
+      genus == "Cornus" ~ "woody",
+      genus == "Crataegus" ~ "woody",
+      genus == "Magnolia" ~ "woody",
+      genus == "Viburnum" ~ "woody",
+      genus == "Ornithogalum" ~ "herb",
+      genus == "Brassica" ~ "herb"))
+
+pollen_jun_form <- PH_pollen_final_June %>%
+  ungroup() %>%
+  select(genus, mean_prop) %>%
+  unique() %>%
+  arrange(-mean_prop) %>%
+  mutate(cum_prop = cumsum(mean_prop)) %>%
+  filter(cum_prop <= 0.90) %>%
+  mutate(form = case_when(
+    genus == "Trifolium" ~ "herb",
+    genus == "Rhus" ~ "woody",
+    genus == "Gleditsia" ~ "woody",
+    genus == "Magnolia" ~ "woody",
+    genus == "Melilotus" ~ "herb",
+    genus == "Sambucus" ~ "woody",
+    genus == "Acer" ~ "woody",
+    genus == "Securigera" ~ "herb",
+    genus == "Hydrangea" ~ "woody",
+    genus == "Ligustrum" ~ "woody",
+    genus == "Viburnum" ~ "woody",
+    genus == "Castanea" ~ "woody",
+    genus == "Plantago" ~ "herb",
+    genus == "Spiraea" ~ "woody",
+    genus == "Salix" ~ "woody",
+    genus == "Tilia" ~ "woody",
+    genus == "Vitis" ~ "woody",
+    genus == "Crataegus" ~ "woody",
+    genus == "Cornus" ~ "woody",
+    genus == "Ailanthus" ~ "woody",
+    genus == "Lonicera" ~ "woody",
+    genus == "Fraxinus" ~ "woody",
+    genus == "Syringa" ~ "woody",
+    genus == "Cirsium" ~ "herb",
+    genus == "Phedimus" ~ "herb",
+    genus == "Ilex" ~ "woody",
+    genus == "Amorpha" ~ "woody",
+    genus == "Sedum" ~ "herb",
+    genus == "Trigonella" ~ "herb",
+    genus == "Pinus" ~ "woody"))
+
+pollen_jul_form <- PH_pollen_final_July %>%
+  ungroup() %>%
+  select(genus, mean_prop) %>%
+  unique() %>%
+  arrange(-mean_prop) %>%
+  mutate(cum_prop = cumsum(mean_prop)) %>%
+  filter(cum_prop <= 0.90) %>%
+  mutate(form = case_when(
+    genus == "Trifolium" ~ "herb",
+    genus == "Lagerstroemia" ~ "woody",
+    genus == "Parthenocissus" ~ "woody",
+    genus == "Verbascum" ~ "herb",
+    genus == "Aralia" ~ "woody",
+    genus == "Plantago" ~ "herb",
+    genus == "Hydrangea" ~ "woody",
+    genus == "Magnolia" ~ "woody",
+    genus == "Melilotus" ~ "herb",
+    genus == "Arctium" ~ "herb",
+    genus == "Campsis" ~ "woody"))
+
+pollen_aug_form <- PH_pollen_final_Aug %>%
+  ungroup() %>%
+  select(genus, mean_prop) %>%
+  unique() %>%
+  arrange(-mean_prop) %>%
+  mutate(cum_prop = cumsum(mean_prop)) %>%
+  filter(cum_prop <= 0.90) %>%
+  mutate(form = case_when(
+    genus == "Aralia" ~ "woody",
+    genus == "Lagerstroemia" ~ "woody",
+    genus == "Styphnolobium" ~ "woody",
+    genus == "Melilotus" ~ "herb",
+    genus == "Trifolium" ~ "herb",
+    genus == "Hydrangea" ~ "woody",
+    genus == "Plantago" ~ "herb",
+    genus == "Koelreuteria" ~ "woody",
+    genus == "Lythrum" ~ "herb",
+    genus == "Cichorium" ~ "herb"))
+
+pollen_sep_form <- PH_pollen_final_Sept %>%
+  ungroup() %>%
+  select(genus, mean_prop) %>%
+  unique() %>%
+  arrange(-mean_prop) %>%
+  mutate(cum_prop = cumsum(mean_prop)) %>%
+  filter(cum_prop <= 0.90) %>%
+  mutate(form = case_when(
+    genus == "Clematis" ~ "woody",
+    genus == "Hedera" ~ "woody",
+    genus == "Eupatorium" ~ "herb",
+    genus == "Trifolium" ~ "herb",
+    genus == "Lagerstroemia" ~ "woody",
+    genus == "Polygonum" ~ "herb",
+    genus == "Phragmites" ~ "herb",
+    genus == "Fallopia" ~ "herb",
+    genus == "Humulus" ~ "herb",
+    genus == "Aralia" ~ "woody",
+    genus == "Heterotheca" ~ "herb",
+    genus == "Ambrosia" ~ "herb",
+    genus == "Liriope" ~ "herb"))
+
+pollen_oct_form <- PH_pollen_final_Oct %>%
+  ungroup() %>%
+  select(genus, mean_prop) %>%
+  unique() %>%
+  arrange(-mean_prop) %>%
+  mutate(cum_prop = cumsum(mean_prop)) %>%
+  filter(cum_prop <= 0.90) %>%
+  mutate(form = case_when(
+    genus == "Hedera" ~ "woody",
+    genus == "Symphyotrichum" ~ "woody",
+    genus == "Lycium" ~ "woody",
+    genus == "Clematis" ~ "woody",
+    genus == "Ageratina" ~ "herb",
+    genus == "Dioscorea" ~ "herb",
+    genus == "Liriope" ~ "herb",
+    genus == "Melilotus" ~ "herb",
+    genus == "Artemisia" ~ "herb",
+    genus == "Solidago" ~ "herb",
+    genus == "Capsicum" ~ "herb",
+    genus == "Magnolia" ~ "woody",
+    genus == "Lagerstroemia" ~ "woody",
+    genus == "Trifolium" ~ "herb",
+    genus == "Viburnum" ~ "woody")) 
+
+ggplot(pollen_may_form, aes(reorder(genus, -mean_prop), mean_prop, fill = form)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_discrete_manual(aesthetics = "fill", values = c("gray60", "gray20")) +
+  xlab("genus") +
+  ylab("mean proportional abundance") +
+  theme_void() +
+  theme(legend.position = "none")
+ggsave("~/vsearchr/inst/extdata/output_2018/pollen_may_WH.png")
+
+ggplot(pollen_jun_form, aes(reorder(genus, -mean_prop), mean_prop, fill = form)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_discrete_manual(aesthetics = "fill", values = c("gray60", "gray20")) +
+  xlab("genus") +
+  ylab("mean proportional abundance") +
+  theme_void() +
+  theme(legend.position = "none")
+ggsave("~/vsearchr/inst/extdata/output_2018/pollen_jun_WH.png")
+
+ggplot(pollen_jul_form, aes(reorder(genus, -mean_prop), mean_prop, fill = form)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_discrete_manual(aesthetics = "fill", values = c("gray60", "gray20")) +
+  xlab("genus") +
+  ylab("mean proportional abundance") +
+  theme_void() +
+  theme(legend.position = "none")
+ggsave("~/vsearchr/inst/extdata/output_2018/pollen_jul_WH.png")
+
+ggplot(pollen_aug_form, aes(reorder(genus, -mean_prop), mean_prop, fill = form)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_discrete_manual(aesthetics = "fill", values = c("gray60", "gray20")) +
+  xlab("genus") +
+  ylab("mean proportional abundance") +
+  theme_void() +
+  theme(legend.position = "none")
+ggsave("~/vsearchr/inst/extdata/output_2018/pollen_aug_WH.png")
+
+ggplot(pollen_sep_form, aes(reorder(genus, -mean_prop), mean_prop, fill = form)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_discrete_manual(aesthetics = "fill", values = c("gray60", "gray20")) +
+  xlab("genus") +
+  ylab("mean proportional abundance") +
+  theme_void() +
+  theme(legend.position = "none")
+ggsave("~/vsearchr/inst/extdata/output_2018/pollen_sep_WH.png")
+
+ggplot(pollen_oct_form, aes(reorder(genus, -mean_prop), mean_prop, fill = form)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_discrete_manual(aesthetics = "fill", values = c("gray60", "gray20")) +
+  xlab("genus") +
+  ylab("mean proportional abundance") +
+  theme_void() +
+  theme(legend.position = "none")
+ggsave("~/vsearchr/inst/extdata/output_2018/pollen_oct_WH.png")
+```
+
+### Habitat affinity analysis, made up by me, based on my field experience 
+```{r}
+pollen_may_class <- PH_pollen_final_May %>%
+  ungroup() %>%
+  select(genus, mean_prop) %>%
+  unique() %>%
+  arrange(-mean_prop) %>%
+  mutate(cum_prop = cumsum(mean_prop)) %>%
+  filter(cum_prop <= 0.90) %>%
+  mutate(
+    class = case_when(
+      genus == "Salix" ~ "seminatural",
+      genus == "Acer" ~ "seminatural",
+      genus == "Quercus" ~ "seminatural",
+      genus == "Malus" ~ "ornamental",
+      genus == "Platanus" ~ "ornamental",
+      genus == "Fraxinus" ~ "seminatural",
+      genus == "Photinia" ~ "ornamental",
+      genus == "Paulownia" ~ "ruderal",
+      genus == "Taraxacum" ~ "ruderal",
+      genus == "Cercis" ~ "ornamental",
+      genus == "Halesia" ~ "ornamental",
+      genus == "Morus" ~ "ruderal",
+      genus == "Pyrus" ~ "ornamental",
+      genus == "Cornus" ~ "ornamental",
+      genus == "Crataegus" ~ "seminatural",
+      genus == "Magnolia" ~ "ornamental",
+      genus == "Viburnum" ~ "ornamental",
+      genus == "Ornithogalum" ~ "ruderal",
+      genus == "Brassica" ~ "ruderal"))
+
+pollen_jun_class <- PH_pollen_final_June %>%
+  ungroup() %>%
+  select(genus, mean_prop) %>%
+  unique() %>%
+  arrange(-mean_prop) %>%
+  mutate(cum_prop = cumsum(mean_prop)) %>%
+  filter(cum_prop <= 0.90) %>%
+  mutate(class = case_when(
+    genus == "Trifolium" ~ "ruderal",
+    genus == "Rhus" ~ "ruderal",
+    genus == "Gleditsia" ~ "seminatural",
+    genus == "Magnolia" ~ "ornamental",
+    genus == "Melilotus" ~ "ruderal",
+    genus == "Sambucus" ~ "ornamental",
+    genus == "Acer" ~ "seminatural",
+    genus == "Securigera" ~ "ruderal",
+    genus == "Hydrangea" ~ "ornamental",
+    genus == "Ligustrum" ~ "ornamental",
+    genus == "Viburnum" ~ "ornamental",
+    genus == "Castanea" ~ "ornamental",
+    genus == "Plantago" ~ "ruderal",
+    genus == "Spiraea" ~ "ornamental",
+    genus == "Salix" ~ "seminatural",
+    genus == "Tilia" ~ "ornamental",
+    genus == "Vitis" ~ "ruderal",
+    genus == "Crataegus" ~ "seminatural",
+    genus == "Cornus" ~ "ornamental",
+    genus == "Ailanthus" ~ "ruderal",
+    genus == "Lonicera" ~ "ruderal",
+    genus == "Fraxinus" ~ "seminatural",
+    genus == "Syringa" ~ "ornamental",
+    genus == "Cirsium" ~ "ruderal",
+    genus == "Phedimus" ~ "ornamental",
+    genus == "Ilex" ~ "ornamental",
+    genus == "Amorpha" ~ "ruderal",
+    genus == "Sedum" ~ "ornamental",
+    genus == "Trigonella" ~ "ornamental",
+    genus == "Pinus" ~ "seminatural"))
+
+pollen_jul_class <- PH_pollen_final_July %>%
+  ungroup() %>%
+  select(genus, mean_prop) %>%
+  unique() %>%
+  arrange(-mean_prop) %>%
+  mutate(cum_prop = cumsum(mean_prop)) %>%
+  filter(cum_prop <= 0.90) %>%
+  mutate(class = case_when(
+    genus == "Trifolium" ~ "ruderal",
+    genus == "Lagerstroemia" ~ "ornamental",
+    genus == "Parthenocissus" ~ "ruderal",
+    genus == "Verbascum" ~ "ruderal",
+    genus == "Aralia" ~ "seminatural",
+    genus == "Plantago" ~ "ruderal",
+    genus == "Hydrangea" ~ "ornamental",
+    genus == "Magnolia" ~ "ornamental",
+    genus == "Melilotus" ~ "ruderal",
+    genus == "Arctium" ~ "ruderal",
+    genus == "Campsis" ~ "seminatural"))
+
+pollen_aug_class <- PH_pollen_final_Aug %>%
+  ungroup() %>%
+  select(genus, mean_prop) %>%
+  unique() %>%
+  arrange(-mean_prop) %>%
+  mutate(cum_prop = cumsum(mean_prop)) %>%
+  filter(cum_prop <= 0.90) %>%
+  mutate(class = case_when(
+    genus == "Aralia" ~ "seminatural",
+    genus == "Lagerstroemia" ~ "ornamental",
+    genus == "Styphnolobium" ~ "ornamental",
+    genus == "Melilotus" ~ "ruderal",
+    genus == "Trifolium" ~ "ruderal",
+    genus == "Hydrangea" ~ "ornamental",
+    genus == "Plantago" ~ "ruderal",
+    genus == "Koelreuteria" ~ "ornamental",
+    genus == "Lythrum" ~ "ruderal",
+    genus == "Cichorium" ~ "ruderal"))
+
+pollen_sep_class <- PH_pollen_final_Sept %>%
+  ungroup() %>%
+  select(genus, mean_prop) %>%
+  unique() %>%
+  arrange(-mean_prop) %>%
+  mutate(cum_prop = cumsum(mean_prop)) %>%
+  filter(cum_prop <= 0.90) %>%
+  mutate(class = case_when(
+    genus == "Clematis" ~ "ornamental",
+    genus == "Hedera" ~ "ornamental",
+    genus == "Eupatorium" ~ "ruderal",
+    genus == "Trifolium" ~ "ruderal",
+    genus == "Lagerstroemia" ~ "ornamental",
+    genus == "Polygonum" ~ "ruderal",
+    genus == "Phragmites" ~ "ruderal",
+    genus == "Fallopia" ~ "ruderal",
+    genus == "Humulus" ~ "ruderal",
+    genus == "Aralia" ~ "seminatural",
+    genus == "Heterotheca" ~ "ruderal",
+    genus == "Ambrosia" ~ "ruderal",
+    genus == "Liriope" ~ "ornamental"))
+
+pollen_oct_class <- PH_pollen_final_Oct %>%
+  ungroup() %>%
+  select(genus, mean_prop) %>%
+  unique() %>%
+  arrange(-mean_prop) %>%
+  mutate(cum_prop = cumsum(mean_prop)) %>%
+  filter(cum_prop <= 0.90) %>%
+  mutate(class = case_when(
+    genus == "Hedera" ~ "ornamental",
+    genus == "Symphyotrichum" ~ "ruderal",
+    genus == "Lycium" ~ "ornamental",
+    genus == "Clematis" ~ "ornamental",
+    genus == "Ageratina" ~ "ruderal",
+    genus == "Dioscorea" ~ "ruderal",
+    genus == "Liriope" ~ "ornamental",
+    genus == "Melilotus" ~ "ruderal",
+    genus == "Artemisia" ~ "ruderal",
+    genus == "Solidago" ~ "ruderal",
+    genus == "Capsicum" ~ "ornamental",
+    genus == "Magnolia" ~ "ornamental",
+    genus == "Lagerstroemia" ~ "ornamental",
+    genus == "Trifolium" ~ "ruderal",
+    genus == "Viburnum" ~ "ornamental")) 
+
+ggplot(pollen_may_class, aes(reorder(genus, -mean_prop), mean_prop, fill = class)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_discrete_manual(values = c("#F8766D", "#00BA38", "#619CFF"), aesthetics = "fill") +
+  theme(axis.title.x = element_blank()) +
+  ylab("mean proportional abundance")
+ggsave("~/vsearchr/inst/extdata/output_2018/pollen_may_class.png")
+
+ggplot(pollen_jun_class, aes(reorder(genus, -mean_prop), mean_prop, fill = class)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_discrete_manual(values = c("#F8766D", "#00BA38", "#619CFF"), aesthetics = "fill") +
+  theme(axis.title.x = element_blank()) +
+  ylab("mean proportional abundance")
+ggsave("~/vsearchr/inst/extdata/output_2018/pollen_jun_class.png")
+
+ggplot(pollen_jul_class, aes(reorder(genus, -mean_prop), mean_prop, fill = class)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_discrete_manual(values = c("#F8766D", "#00BA38", "#619CFF"), aesthetics = "fill") +
+  theme(axis.title.x = element_blank()) +
+  ylab("mean proportional abundance")
+ggsave("~/vsearchr/inst/extdata/output_2018/pollen_jul_class.png")
+
+ggplot(pollen_aug_class, aes(reorder(genus, -mean_prop), mean_prop, fill = class)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_discrete_manual(values = c("#F8766D", "#00BA38", "#619CFF"), aesthetics = "fill") +
+  theme(axis.title.x = element_blank()) +
+  ylab("mean proportional abundance")
+ggsave("~/vsearchr/inst/extdata/output_2018/pollen_aug_class.png")
+
+ggplot(pollen_sep_class, aes(reorder(genus, -mean_prop), mean_prop, fill = class)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_discrete_manual(values = c("#F8766D", "#00BA38"), aesthetics = "fill") +
+  theme(axis.title.x = element_blank()) +
+  ylab("mean proportional abundance")
+ggsave("~/vsearchr/inst/extdata/output_2018/pollen_sep_class.png")
+
+ggplot(pollen_oct_class, aes(reorder(genus, -mean_prop), mean_prop, fill = class)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_discrete_manual(values = c("#F8766D", "#00BA38"), aesthetics = "fill") +
+  theme(axis.title.x = element_blank()) +
+  ylab("mean proportional abundance")
+ggsave("~/vsearchr/inst/extdata/output_2018/pollen_oct_class.png")
 ```
