@@ -5,32 +5,18 @@ output: html_notebook
 
 
 ### Load vsearch output
-#### Philly 2017 pollen
-```{r include=FALSE}
-trnL_PH_pollen <- load_blast6("~/vsearchr/inst/extdata/trnL_vsearch_philly.output/pollen/")
-ITS1_PH_pollen <- load_blast6("~/vsearchr/inst/extdata/ITS1_vsearch_philly.output/pollen/")
-ITS2_PH_pollen <- load_blast6("~/vsearchr/inst/extdata/ITS2_vsearch_philly.output/pollen/")
-write_csv(trnL_PH_pollen, "trnL_PH_pollen.csv")
-write_csv(ITS1_PH_pollen, "ITS1_PH_pollen.csv")
-write_csv(ITS2_PH_pollen, "ITS2_PH_pollen.csv")
-trnL_PH_pollen <- read_csv("trnL_PH_pollen.csv", col_names = TRUE)
-ITS1_PH_pollen <- read_csv("ITS1_PH_pollen.csv", col_names = TRUE)
-ITS2_PH_pollen <- read_csv("ITS2_PH_pollen.csv", col_names = TRUE)
-```
-
 #### Philly 2017 honey
 ```{r}
-trnL_PH_honey <- load_blast6("~/vsearchr/inst/extdata/trnL_vsearch_philly.output/honey/")
-ITS1_PH_honey <- load_blast6("~/vsearchr/inst/extdata/ITS1_vsearch_philly.output/honey/")
-ITS2_PH_honey <- load_blast6("~/vsearchr/inst/extdata/ITS2_vsearch_philly.output/honey/")
-write_csv(trnL_PH_honey, "trnL_PH_honey.csv")
-write_csv(ITS1_PH_honey, "ITS1_PH_honey.csv")
-write_csv(ITS2_PH_honey, "ITS2_PH_honey.csv")
-# trnL_PH_honey <- read_csv("trnL_PH_honey.csv", col_names = TRUE)
-# ITS1_PH_honey <- read_csv("ITS1_PH_honey.csv", col_names = TRUE)
-# ITS2_PH_honey <- read_csv("ITS2_PH_honey.csv", col_names = TRUE)
+trnL_PH_honey_2017 <- load_blast6("~/vsearchr/inst/extdata/trnL_vsearch_philly_2017.output/honey/")
+ITS1_PH_honey_2017 <- load_blast6("~/vsearchr/inst/extdata/ITS1_vsearch_philly_2017.output/honey/")
+ITS2_PH_honey_2017 <- load_blast6("~/vsearchr/inst/extdata/ITS2_vsearch_philly_2017.output/honey/")
+write_csv(trnL_PH_honey_2017, "~/vsearchr/inst/extdata/trnL_PH_honey_2017.csv")
+write_csv(ITS1_PH_honey_2017, "~/vsearchr/inst/extdata/ITS1_PH_honey_2017.csv")
+write_csv(ITS2_PH_honey_2017, "~/vsearchr/inst/extdata/ITS2_PH_honey_2017.csv")
+trnL_PH_honey_2017 <- read_csv("~/vsearchr/inst/extdata/trnL_PH_honey_2017.csv", col_names = TRUE)
+ITS1_PH_honey_2017 <- read_csv("~/vsearchr/inst/extdata/ITS1_PH_honey_2017.csv", col_names = TRUE)
+ITS2_PH_honey_2017 <- read_csv("~/vsearchr/inst/extdata/ITS2_PH_honey_2017.csv", col_names = TRUE)
 ```
-
 
 ### Load taxonomy tables
 #### Philly 2017
@@ -43,23 +29,44 @@ ITS2_PH_tax <- load_MTXA("~/vsearchr/inst/extdata/ITS2_PH_Amplicons.tax")
 ### Join vsearch output to taxonomy tables
 #### Philly 2017 honey
 ```{r}
-trnL_PH_honey_join <- tax_join(trnL_PH_honey, trnL_PH_tax, min_id = 0.97, min_len = 150)
-ITS1_PH_honey_join <- tax_join(ITS1_PH_honey, ITS1_PH_tax, min_id = 0.95, min_len = 300)
-ITS2_PH_honey_join <- tax_join(ITS2_PH_honey, ITS2_PH_tax, min_id = 0.95, min_len = 300)
-write_csv(trnL_PH_honey_join, "trnL_PH_honey_join.csv")
-write_csv(ITS1_PH_honey_join, "ITS1_PH_honey_join.csv")
-write_csv(ITS2_PH_honey_join, "ITS2_PH_honey_join.csv")
-# trnL_PH_honey_join <- read_csv("trnL_PH_honey_join.csv", col_names = TRUE)
-# ITS1_PH_honey_join <- read_csv("ITS1_PH_honey_join.csv", col_names = TRUE)
-# ITS2_PH_honey_join <- read_csv("ITS2_PH_honey_join.csv", col_names = TRUE)
+trnL_PH_honey_2017_join <- tax_join(trnL_PH_honey_2017, trnL_PH_tax, min_id = 0.97, min_len = 150)
+ITS1_PH_honey_2017_join <- tax_join(ITS1_PH_honey_2017, ITS1_PH_tax, min_id = 0.95, min_len = 300)
+ITS2_PH_honey_2017_join <- tax_join(ITS2_PH_honey_2017, ITS2_PH_tax, min_id = 0.95, min_len = 300)
+write_csv(trnL_PH_honey_2017_join, "~/vsearchr/inst/extdata/trnL_PH_honey_2017_join.csv")
+write_csv(ITS1_PH_honey_2017_join, "~/vsearchr/inst/extdata/ITS1_PH_honey_2017_join.csv")
+write_csv(ITS2_PH_honey_2017_join, "~/vsearchr/inst/extdata/ITS2_PH_honey_2017_join.csv")
+trnL_PH_honey_2017_join <- read_csv("~/vsearchr/inst/extdata/trnL_PH_honey_2017_join.csv", col_names = TRUE)
+ITS1_PH_honey_2017_join <- read_csv("~/vsearchr/inst/extdata/ITS1_PH_honey_2017_join.csv", col_names = TRUE)
+ITS2_PH_honey_2017_join <- read_csv("~/vsearchr/inst/extdata/ITS2_PH_honey_2017_join.csv", col_names = TRUE)
+```
+
+### Evaluate coverage
+```{r}
+trnL_cov <- trnL_PH_honey_2017 %>%
+  group_by(sample) %>%
+  summarize(reads = n())
+
+ITS1_cov <- ITS1_PH_honey_2017 %>%
+  group_by(sample) %>%
+  summarize(reads = n())
+
+ITS2_cov <- ITS2_PH_honey_2017 %>%
+  group_by(sample) %>%
+  summarize(reads = n())
+
+cov <- full_join(trnL_cov, ITS1_cov, by = "sample") %>%
+  full_join(ITS2_cov, by = "sample") %>%
+  dplyr::select(sample, trnL = 2, ITS1 = 3, ITS2 = 4)
+
+write_csv(cov, "~/vsearchr/inst/extdata/output_2017/honey_2017_coverage.csv")
 ```
 
 ### Tally genera by sample
 #### Philly 2017 honey
 ```{r}
-trnL_PH_honey_tally <- tally_gen(trnL_PH_honey_join)
-ITS1_PH_honey_tally <- tally_gen(ITS1_PH_honey_join)
-ITS2_PH_honey_tally <- tally_gen(ITS2_PH_honey_join)
+trnL_PH_honey_tally <- tally_gen(trnL_PH_honey_2017_join)
+ITS1_PH_honey_tally <- tally_gen(ITS1_PH_honey_2017_join)
+ITS2_PH_honey_tally <- tally_gen(ITS2_PH_honey_2017_join)
 ```
 
 ### Add sample metadata, create consensus data sets, create genus summary fields
@@ -72,28 +79,29 @@ ITS2_PH_honey_final <- add_meta(ITS2_PH_honey_tally, "~/vsearchr/inst/extdata/PH
 PH_honey_consensus <- consensus_xyz_gen(trnL_PH_honey_final, ITS1_PH_honey_final, ITS2_PH_honey_final,
                                          min_prop = 0.0005) %>%
   add_meta("~/vsearchr/inst/extdata/PH_2017_key.csv") %>%
-  mutate(period = case_when(date > "2017-05-20" & date < "2017-06-15" ~ "May/June",
-                            date > "2017-06-20" & date < "2017-07-15" ~ "June/July",
+  mutate(period = case_when(date > "2017-05-20" & date < "2017-06-15" ~ "June",
+                            date > "2017-06-20" & date < "2017-07-15" ~ "July",
                             date > "2017-07-20" & date < "2017-08-15" ~ "Aug",
                             date > "2017-08-20" & date < "2017-09-15" ~ "Sept",
-                            is.na(date) & site == "SHARE" ~ "June/July"))
+                            is.na(date) & site == "Nicetown" ~ "July"))
 
-PH_honey_consensus_MayJune <- filter(PH_honey_consensus, period == "May/June")
-PH_honey_consensus_JuneJuly <- filter(PH_honey_consensus, period == "June/July")
+PH_honey_consensus_June <- filter(PH_honey_consensus, period == "June")
+PH_honey_consensus_July <- filter(PH_honey_consensus, period == "July")
 PH_honey_consensus_Aug <- filter(PH_honey_consensus, period == "Aug")
 PH_honey_consensus_Sept <- filter(PH_honey_consensus, period == "Sept")
 
 
 PH_honey_genus_summary <- PH_honey_consensus %>%
   group_by(genus) %>%
-  summarize(gen_freq = n())
+  summarize(gen_freq = n(),
+            max_prop = max(scaled_prop))
 
-PH_honey_genus_summary_MayJune <- PH_honey_consensus_MayJune %>%
+PH_honey_genus_summary_June <- PH_honey_consensus_June %>%
   group_by(genus) %>%
   summarize(gen_freq = n(),
             mean_prop = sum(scaled_prop)/8) # We only had 8 sites for the MayJune sample; we had 12 sites for all others
 
-PH_honey_genus_summary_JuneJuly <- PH_honey_consensus_JuneJuly %>%
+PH_honey_genus_summary_July <- PH_honey_consensus_July %>%
   group_by(genus) %>%
   summarize(gen_freq = n(),
             mean_prop = sum(scaled_prop)/12)
@@ -109,11 +117,17 @@ PH_honey_genus_summary_Sept <- PH_honey_consensus_Sept %>%
             mean_prop = sum(scaled_prop)/12)
 
 
-PH_honey_final <- left_join(PH_honey_consensus, PH_honey_genus_summary, by = "genus")
-PH_honey_final_MayJune <- left_join(PH_honey_consensus_MayJune, PH_honey_genus_summary_MayJune, by = "genus")
-PH_honey_final_JuneJuly <- left_join(PH_honey_consensus_JuneJuly, PH_honey_genus_summary_JuneJuly, by = "genus")
-PH_honey_final_Aug <- left_join(PH_honey_consensus_Aug, PH_honey_genus_summary_Aug, by = "genus")
-PH_honey_final_Sept <- left_join(PH_honey_consensus_Sept, PH_honey_genus_summary_Sept, by = "genus")
+PH_honey_final_2017 <- left_join(PH_honey_consensus, PH_honey_genus_summary, by = "genus")
+PH_honey_final_June_2017 <- left_join(PH_honey_consensus_June, PH_honey_genus_summary_June, by = "genus")
+PH_honey_final_July_2017 <- left_join(PH_honey_consensus_July, PH_honey_genus_summary_July, by = "genus")
+PH_honey_final_Aug_2017 <- left_join(PH_honey_consensus_Aug, PH_honey_genus_summary_Aug, by = "genus")
+PH_honey_final_Sept_2017 <- left_join(PH_honey_consensus_Sept, PH_honey_genus_summary_Sept, by = "genus")
+
+write_csv(PH_honey_final_2017, "~/vsearchr/inst/extdata/output_2017/PH_2017_honey.csv")
+write_csv(PH_honey_final_June_2017, "~/vsearchr/inst/extdata/output_2017/PH_2017_honey_jun.csv")
+write_csv(PH_honey_final_July_2017, "~/vsearchr/inst/extdata/output_2017/PH_2017_honey_jul.csv")
+write_csv(PH_honey_final_Aug_2017, "~/vsearchr/inst/extdata/output_2017/PH_2017_honey_aug.csv")
+write_csv(PH_honey_final_Sept_2017, "~/vsearchr/inst/extdata/output_2017/PH_2017_honey_sep.csv")
 
 ```
 
